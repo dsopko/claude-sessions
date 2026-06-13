@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Setup.ps1:*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Uninstall.ps1:*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Update-SessionIndex.ps1:*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Get-SessionDetail.ps1:*)",
+      "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Search-Sessions.ps1:*)",
+      "Bash(pwsh -NoProfile -File ./scripts/windows/Update-SessionIndex.ps1:*)",
+      "Bash(pwsh -NoProfile -File ./scripts/windows/Get-SessionDetail.ps1:*)",
+      "Bash(pwsh -NoProfile -File ./scripts/windows/Search-Sessions.ps1:*)",
+      "Read(./**)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Update-SessionIndex.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}

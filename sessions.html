@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Sessions</title>
+<style>
+  :root {
+    --ink: #0f131b;
+    --panel: #161b26;
+    --panel-2: #1b2130;
+    --line: #242c3d;
+    --text: #d8dde8;
+    --dim: #8a93a8;
+    --faint: #5c6478;
+    --amber: #ffb454;
+    --amber-dim: #b07a33;
+    --teal: #6cc5b9;
+    --mono: "Cascadia Code", Consolas, ui-monospace, "SF Mono", monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--ink); }
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+    padding: 28px clamp(16px, 4vw, 56px) 80px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  /* ---- header ---- */
+  header { margin-bottom: 22px; }
+  .title-row { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  h1 {
+    font-family: var(--mono);
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h1 .tilde { color: var(--amber); }
+  .gen-stamp { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .jsonl-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .jsonl-line .k { color: var(--dim); }
+  .jsonl-line .v { color: var(--teal); }
+
+  /* ---- controls ---- */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 20px 0 14px;
+    padding: 10px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .controls input[type="search"] {
+    flex: 1;
+    min-width: 220px;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 7px 10px;
+    outline: none;
+  }
+  .controls input[type="search"]:focus-visible { border-color: var(--amber-dim); }
+  .controls input[type="search"]::placeholder { color: var(--faint); }
+  .controls select, .controls button {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--dim);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    padding: 7px 10px;
+    cursor: pointer;
+  }
+  .controls select:hover, .controls button:hover { color: var(--text); border-color: var(--faint); }
+  .controls button[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-dim); }
+  .controls button:focus-visible, .controls select:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: 1px; }
+  .hint { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .count-line { font-size: 12.5px; color: var(--dim); margin: 0 0 10px 2px; }
+  .count-line strong { color: var(--text); font-weight: 600; }
+
+  /* ---- project groups ---- */
+  .group { margin-bottom: 18px; }
+  .group-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+    padding: 6px 2px;
+  }
+  .gh-toggle {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 2px 0;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .gh-toggle:hover .gh-path { color: var(--amber); }
+  .gh-toggle:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: -2px; }
+  .gh-actions { display: flex; gap: 6px; margin-left: auto; }
+  .gh-act {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    text-decoration: none;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .gh-act:hover { color: var(--amber); border-color: var(--amber-dim); }
+  .gh-act:focus-visible { outline: 2px solid var(--amber-dim); }
+  .launch-link {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink);
+    background: var(--amber);
+    text-decoration: none;
+    border-radius: 4px;
+    padding: 2px 9px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .launch-link:hover { background: #ffc878; }
+  .launch-link:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: 1px; }
+  .gh-caret { color: var(--faint); font-size: 11px; width: 12px; transition: transform .12s; }
+  .group.collapsed .gh-caret { transform: rotate(-90deg); }
+  .gh-path { transition: color .1s; }
+  .gh-count { color: var(--faint); font-weight: 400; font-size: 12px; }
+  .gh-latest { color: var(--dim); font-weight: 400; font-size: 12px; font-family: var(--sans); }
+  .group.collapsed .rows { display: none; }
+
+  /* ---- session rows ---- */
+  .row {
+    display: grid;
+    grid-template-columns: 4px minmax(200px, 1fr) 110px 92px 92px 70px;
+    gap: 0 14px;
+    align-items: center;
+    padding: 9px 10px 9px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+    cursor: pointer;
+  }
+  .row:hover { background: var(--panel); }
+  .row:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: -2px; }
+  /* signature: recency heat tick — amber intensity encodes freshness */
+  .tick { width: 3px; height: 100%; min-height: 22px; border-radius: 2px; background: var(--amber); }
+  .prompt {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .prompt .named { color: var(--amber); }
+  .prompt .fork-mark { color: var(--teal); font-size: 11px; margin-right: 4px; }
+  .prompt.empty { color: var(--faint); font-style: italic; }
+  .cell { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cell.branch { font-family: var(--mono); color: var(--teal); font-size: 11.5px; }
+  .cell.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .col-heads {
+    display: grid;
+    grid-template-columns: 4px minmax(200px, 1fr) 110px 92px 92px 70px;
+    gap: 0 14px;
+    padding: 0 10px 4px 0;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--faint);
+  }
+  .col-heads .num { text-align: right; }
+
+  /* ---- expanded detail ---- */
+  .detail {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 6px 0 10px;
+    padding: 14px 16px;
+    cursor: default;
+  }
+  .detail .full-prompt {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-left: 2px solid var(--amber-dim);
+    padding-left: 12px;
+    margin-bottom: 12px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 14px; font-size: 12px; }
+  .kv dt { color: var(--faint); }
+  .kv dd { font-family: var(--mono); color: var(--dim); word-break: break-all; display: flex; align-items: center; gap: 8px; }
+  .copy-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--dim);
+    font-family: var(--sans);
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .copy-btn:hover { color: var(--amber); border-color: var(--amber-dim); }
+  .copy-btn:focus-visible { outline: 2px solid var(--amber-dim); }
+  .resume-cmd { color: var(--amber) !important; }
+
+  .empty-state {
+    text-align: center;
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 60px 0;
+  }
+
+  @media (max-width: 760px) {
+    .row, .col-heads { grid-template-columns: 4px 1fr 80px; }
+    .cell.branch, .cell.started, .col-heads .branch, .col-heads .started,
+    .cell.dur, .col-heads .dur { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1><span class="tilde">~</span>/.claude/projects</h1>
+    <span class="gen-stamp" id="genStamp"></span>
+  </div>
+  <div class="jsonl-line" id="jsonlLine"></div>
+</header>
+
+<div class="controls">
+  <input type="search" id="filter" placeholder="filter prompts, paths, branches, ids&hellip;" autocomplete="off">
+  <select id="sortBy" title="Sort sessions">
+    <option value="lastActivity">last activity</option>
+    <option value="startTime">start date</option>
+    <option value="durationMin">duration</option>
+    <option value="sizeBytes">size</option>
+  </select>
+  <button id="groupToggle" aria-pressed="true" title="Group sessions by project">group by project</button>
+  <button id="collapseAll" title="Collapse or expand all groups">collapse all</button>
+  <a class="gh-act" id="assistBtn" href="claudesessions://assist/start"
+     title="Open a Claude session in this folder to search transcripts conversationally">&#x2315; search with claude</a>
+  <span class="hint">/ to search</span>
+</div>
+
+<p class="count-line" id="countLine"></p>
+<div id="list"></div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  const DATA = window.SESSION_DATA || { sessions: [], generated: null };
+  const CAN_LAUNCH = DATA.launchEnabled !== false;   // old indexes (no flag) keep buttons
+  if (!CAN_LAUNCH) { const b = document.getElementById('assistBtn'); if (b) b.remove(); }
+  const $list = document.getElementById('list');
+  const $filter = document.getElementById('filter');
+  const $sortBy = document.getElementById('sortBy');
+  const $groupToggle = document.getElementById('groupToggle');
+  const $collapseAll = document.getElementById('collapseAll');
+
+  const state = {
+    filter: '',
+    sortBy: 'lastActivity',
+    grouped: true,
+    expanded: new Set(),          // sessionIds with open detail
+    collapsedGroups: new Set(),   // projectDir names
+    allCollapsed: false
+  };
+
+  /* ---------- formatting ---------- */
+  const relTime = iso => {
+    if (!iso) return '—';
+    const ms = Date.now() - new Date(iso).getTime();
+    if (isNaN(ms)) return '—';
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + 'm ago';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    const d = Math.floor(h / 24);
+    if (d < 14) return d + 'd ago';
+    if (d < 60) return Math.floor(d / 7) + 'w ago';
+    return Math.floor(d / 30) + 'mo ago';
+  };
+  const shortDate = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return '—';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+      (d.getFullYear() !== new Date().getFullYear() ? ' ' + String(d.getFullYear()).slice(2) : '');
+  };
+  const fmtDur = min => {
+    if (min == null) return '—';
+    if (min < 1) return '<1m';
+    if (min < 60) return Math.round(min) + 'm';
+    const h = min / 60;
+    if (h < 48) return h.toFixed(h < 10 ? 1 : 0) + 'h';
+    return Math.round(h / 24) + 'd';
+  };
+  const fmtSize = b => {
+    if (b == null) return '—';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(0) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  };
+  // Recency -> tick opacity: full amber under 1h, fading to near-invisible at 30d.
+  const heat = iso => {
+    if (!iso) return 0.06;
+    const hrs = (Date.now() - new Date(iso).getTime()) / 3600000;
+    if (isNaN(hrs)) return 0.06;
+    if (hrs <= 1) return 1;
+    if (hrs >= 720) return 0.06;
+    return Math.max(0.06, 1 - Math.log(hrs) / Math.log(720));
+  };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ---------- data ---------- */
+  function visibleSessions() {
+    const q = state.filter.trim().toLowerCase();
+    let rows = DATA.sessions.slice();
+    if (q) {
+      rows = rows.filter(s =>
+        (s.firstPrompt || '').toLowerCase().includes(q) ||
+        (s.title || '').toLowerCase().includes(q) ||
+        (s.cwd || '').toLowerCase().includes(q) ||
+        (s.gitBranch || '').toLowerCase().includes(q) ||
+        (s.sessionId || '').toLowerCase().includes(q));
+    }
+    const k = state.sortBy;
+    rows.sort((a, b) => {
+      const av = a[k], bv = b[k];
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (k === 'durationMin' || k === 'sizeBytes') ? bv - av
+        : String(bv).localeCompare(String(av));
+    });
+    return rows;
+  }
+
+  /* ---------- render ---------- */
+  function rowHtml(s) {
+    const label = s.title
+      ? `<span class="named">${esc(s.title)}</span>`
+      : s.firstPrompt ? esc(s.firstPrompt) : null;
+    const promptCls = label ? 'prompt' : 'prompt empty';
+    const fork = s.isFork ? '<span class="fork-mark" title="resumed / branched lineage">&#x2387;</span>' : '';
+    const open = state.expanded.has(s.sessionId);
+    return `
+      <div class="row" role="button" tabindex="0" data-id="${esc(s.sessionId)}"
+           aria-expanded="${open}">
+        <span class="tick" style="opacity:${heat(s.lastActivity).toFixed(2)}"
+              title="last activity ${esc(relTime(s.lastActivity))}"></span>
+        <span class="${promptCls}">${fork}${label || '(no prompt captured)'}</span>
+        <span class="cell branch">${esc(s.gitBranch || '—')}</span>
+        <span class="cell started num" title="${esc(s.startTime || '')}">${shortDate(s.startTime)}</span>
+        <span class="cell num" title="${esc(s.lastActivity || '')}">${relTime(s.lastActivity)}</span>
+        <span class="cell dur num">${fmtDur(s.durationMin)}</span>
+      </div>
+      ${open ? detailHtml(s) : ''}`;
+  }
+
+  function detailHtml(s) {
+    const resume = 'claude --resume ' + s.sessionId;
+    return `
+      <div class="detail" data-detail="${esc(s.sessionId)}">
+        ${s.firstPrompt ? `<div class="full-prompt">${esc(s.firstPrompt)}</div>` : ''}
+        <dl class="kv">
+          <dt>resume</dt>
+          <dd><span class="resume-cmd">${esc(resume)}</span>
+              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}">launch</a>` : ''}
+              <button class="copy-btn" data-copy="${esc(resume)}">copy</button></dd>
+          <dt>session id</dt>
+          <dd>${esc(s.sessionId)}
+              <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button></dd>
+          <dt>directory</dt><dd>${esc(s.cwd || '—')}</dd>
+          <dt>size</dt><dd>${fmtSize(s.sizeBytes)}</dd>
+          <dt>version</dt><dd>${esc(s.version || '—')}</dd>
+          <dt>file</dt><dd>${esc(s.filePath || '—')}</dd>
+        </dl>
+      </div>`;
+  }
+
+  const colHeads = `
+    <div class="col-heads">
+      <span></span><span>session</span><span class="branch">branch</span>
+      <span class="started num">started</span><span class="num">last active</span>
+      <span class="dur num">dur</span>
+    </div>`;
+
+  function render() {
+    const rows = visibleSessions();
+    const projects = new Set(rows.map(s => s.projectDir));
+    document.getElementById('countLine').innerHTML =
+      `<strong>${rows.length}</strong> session${rows.length === 1 ? '' : 's'}` +
+      ` across <strong>${projects.size}</strong> project${projects.size === 1 ? '' : 's'}` +
+      (state.filter ? ` matching &ldquo;${esc(state.filter)}&rdquo;` : '');
+
+    if (!rows.length) {
+      $list.innerHTML = `<div class="empty-state">no sessions match — clear the filter or re-run Update-SessionIndex.ps1</div>`;
+      return;
+    }
+
+    if (!state.grouped) {
+      $list.innerHTML = colHeads + rows.map(rowHtml).join('');
+      return;
+    }
+
+    // group by project, ordered by each group's most recent activity
+    const groups = new Map();
+    for (const s of rows) {
+      if (!groups.has(s.projectDir)) groups.set(s.projectDir, []);
+      groups.get(s.projectDir).push(s);
+    }
+    const ordered = [...groups.entries()].sort((a, b) => {
+      const last = g => g.reduce((m, s) => s.lastActivity > m ? s.lastActivity : m, '');
+      return last(b[1]).localeCompare(last(a[1]));
+    });
+
+    $list.innerHTML = ordered.map(([dir, items]) => {
+      const collapsed = state.collapsedGroups.has(dir);
+      const latest = items.reduce((m, s) => s.lastActivity > m ? s.lastActivity : m, '');
+      const label = items[0].cwd || dir;
+      return `
+        <section class="group ${collapsed ? 'collapsed' : ''}">
+          <div class="group-header">
+            <button class="gh-toggle" data-group="${esc(dir)}" aria-expanded="${!collapsed}">
+              <span class="gh-caret">&#9660;</span>
+              <span class="gh-path">${esc(label)}</span>
+              <span class="gh-count">(${items.length})</span>
+            </button>
+            ${CAN_LAUNCH ? `<span class="gh-actions">
+              <a class="gh-act" href="claudesessions://continue/${esc(dir)}"
+                 title="claude --continue in ${esc(label)}">&#x27F3; continue</a>
+              <a class="gh-act" href="claudesessions://new/${esc(dir)}"
+                 title="new claude session in ${esc(label)}">+ new</a>
+            </span>` : ''}
+            <span class="gh-latest">${relTime(latest)}</span>
+          </div>
+          <div class="rows">${colHeads}${items.map(rowHtml).join('')}</div>
+        </section>`;
+    }).join('');
+  }
+
+  /* ---------- header ---------- */
+  function renderHeader() {
+    const g = DATA.generated ? new Date(DATA.generated) : null;
+    document.getElementById('genStamp').textContent =
+      g ? 'indexed ' + relTime(DATA.generated) : 'no index — run Update-SessionIndex.ps1';
+    document.getElementById('jsonlLine').innerHTML =
+      `{<span class="k">"machine"</span>: <span class="v">"${esc(DATA.machine || '?')}"</span>, ` +
+      `<span class="k">"sessions"</span>: <span class="v">${DATA.sessions.length}</span>, ` +
+      `<span class="k">"generated"</span>: <span class="v">"${g ? g.toLocaleString() : 'never'}"</span>}`;
+  }
+
+  /* ---------- events ---------- */
+  function copyText(t, btn) {
+    const done = () => { btn.textContent = 'copied'; setTimeout(() => btn.textContent = 'copy', 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(done).catch(() => fallback());
+    } else fallback();
+    function fallback() {
+      const ta = document.createElement('textarea');
+      ta.value = t; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove(); done();
+    }
+  }
+
+  $list.addEventListener('click', e => {
+    const copy = e.target.closest('.copy-btn');
+    if (copy) { copyText(copy.dataset.copy, copy); e.stopPropagation(); return; }
+    if (e.target.closest('.detail')) return;
+    if (e.target.closest('.gh-act') || e.target.closest('.launch-link')) return; // let the link navigate
+    const gh = e.target.closest('.gh-toggle');
+    if (gh) {
+      const d = gh.dataset.group;
+      state.collapsedGroups.has(d) ? state.collapsedGroups.delete(d) : state.collapsedGroups.add(d);
+      render(); return;
+    }
+    const row = e.target.closest('.row');
+    if (row) {
+      const id = row.dataset.id;
+      state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id);
+      render();
+    }
+  });
+  $list.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('row')) {
+      e.preventDefault(); e.target.click();
+    }
+  });
+
+  $filter.addEventListener('input', () => { state.filter = $filter.value; render(); });
+  $sortBy.addEventListener('change', () => { state.sortBy = $sortBy.value; render(); });
+  $groupToggle.addEventListener('click', () => {
+    state.grouped = !state.grouped;
+    $groupToggle.setAttribute('aria-pressed', state.grouped);
+    render();
+  });
+  $collapseAll.addEventListener('click', () => {
+    state.allCollapsed = !state.allCollapsed;
+    state.collapsedGroups = state.allCollapsed
+      ? new Set(DATA.sessions.map(s => s.projectDir)) : new Set();
+    $collapseAll.textContent = state.allCollapsed ? 'expand all' : 'collapse all';
+    render();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement !== $filter) {
+      e.preventDefault(); $filter.focus();
+    }
+    if (e.key === 'Escape' && document.activeElement === $filter) {
+      $filter.value = ''; state.filter = ''; render(); $filter.blur();
+    }
+  });
+
+  renderHeader();
+  render();
+})();
+</script>
+</body>
+</html>
