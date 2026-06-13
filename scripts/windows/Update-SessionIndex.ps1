@@ -92,7 +92,7 @@ function Test-RealUserPrompt {
 }
 
 function Get-ProjectLabel {
-    # Decode 'C--Projects-penncustquote' -> 'C:\Projects\penncustquote' (best effort).
+    # Decode 'C--Projects-myapp' -> 'C:\Projects\myapp' (best effort).
     # The encoding is lossy (dashes in real names are ambiguous), so prefer the
     # cwd recorded inside the transcript when available; this is the fallback.
     param([string]$DirName)
