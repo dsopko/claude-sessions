@@ -15,7 +15,7 @@ Claude is the installer.
 git clone https://github.com/dsopko/claude-sessions.git ClaudeSessions
 cd ClaudeSessions
 claude
-> set me up
+> set up ClaudeSessions
 ```
 
 Claude detects your environment, asks three questions (which terminal window,
