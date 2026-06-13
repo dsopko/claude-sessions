@@ -12,7 +12,7 @@ protocol handler.
 Claude is the installer.
 
 ```
-git clone <repo> ClaudeSessions
+git clone https://github.com/dsopko/claude-sessions.git ClaudeSessions
 cd ClaudeSessions
 claude
 > set me up
