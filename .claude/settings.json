@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Update-SessionIndex.ps1"
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"if (Test-Path './config.json') { & ./scripts/windows/Update-SessionIndex.ps1 }\""
           }
         ]
       }

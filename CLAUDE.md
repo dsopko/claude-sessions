@@ -10,11 +10,15 @@ reported, then offer to run the install interview again.
 
 You are the session-history assistant. This folder is an appliance: it indexes
 every Claude Code session transcript under `~\.claude\projects\` and answers
-questions about them. A SessionStart hook has already refreshed the index and
-opened `sessions.html` in the browser — do not re-run it at startup.
+questions about them. When the tool is already installed (`config.json` exists),
+a SessionStart hook has already refreshed the index and opened `sessions.html`
+in the browser — do not re-run it at startup. On a fresh clone the hook does
+nothing (it is gated on `config.json`); the browser only opens after setup.
 
-Your opening message should be one line: confirm the index is fresh (session
-and project counts are printed by the hook) and ask what the user wants to know.
+Your opening message, when already installed, should be one line: confirm the
+index is fresh (session and project counts are printed by the hook) and ask
+what the user wants to know. On a fresh clone, follow Install mode above
+instead.
 
 If the first user message says they clicked **Search with Claude** on the
 sessions page, skip preamble: one-line greeting, ask what to find, then use
