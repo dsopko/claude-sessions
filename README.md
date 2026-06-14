@@ -10,7 +10,8 @@ organized easy to read dashboard with simple resume alternatives.
 - **Deep AI Search:** Spin up a meta-session and let Claude search across every
   transcript on your computer.
 - **One-Click Launch:** A desktop / Start-menu icon relaunches the dashboard
-  freshly re-indexed — no terminal, no cd-ing to the project folder.
+  freshly re-indexed and provides an alternative to the tired launching a terminal
+  and using the terminal to navigate to  project folders.
 - **100% Local:** Nothing leaves your machine.
 
 Claude itself does the install — see below.
