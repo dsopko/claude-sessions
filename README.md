@@ -1,18 +1,17 @@
 # ClaudeSessions
 
-Claude Code saves every conversation locally, but leaves them buried and hard
-to search. ClaudeSessions turns that scattered history into a lightning-fast
-dashboard.
+Claude Sessions turns your scattered local Claude Code conversations into an
+organized easy to read dashboard with simple resume alternatives.
 
 - **Global Overview:** See all your sessions in one place, grouped by project
-  and sorted newest-first.
+  and session last touched first.
 - **Instant Resumption:** Resume a past session or start a fresh one in that
   project folder directly from the dashboard.
 - **Deep AI Search:** Spin up a meta-session and let Claude search across every
   transcript on your computer.
 - **One-Click Launch:** A desktop / Start-menu icon relaunches the dashboard
   freshly re-indexed — no terminal, no cd-ing to the project folder.
-- **100% Local:** Your data never leaves your machine.
+- **100% Local:** Nothing leaves your machine.
 
 Claude itself does the install — see below.
 
@@ -26,8 +25,9 @@ git clone https://github.com/dsopko/claude-sessions.git ClaudeSessions
 cd ClaudeSessions
 claude "set up ClaudeSessions"
 ```
+Claude will prompt you with set-up options.
 
-This creates a `ClaudeSessions` folder containing the scripts and instructions
+The 'git clone' creates a `ClaudeSessions` folder containing the scripts and instructions
 to install and run Claude Sessions.
 
 Claude detects your environment, asks three questions (which terminal window,
