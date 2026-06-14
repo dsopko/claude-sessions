@@ -1,22 +1,34 @@
-# claude-sessions
+# ClaudeSessions
 
-A one-click browser for your Claude Code session history — and the Claude
-session that maintains it. Indexes every transcript under `~/.claude/projects`
-(head/tail reads only; milliseconds at any size), renders a self-contained
-page with project grouping, instant filtering, and launch buttons that resume
-sessions or start new ones in the right directory via a `claudesessions://`
-protocol handler.
+Claude Code saves every conversation locally, but leaves them buried and hard
+to search. ClaudeSessions turns that scattered history into a lightning-fast
+dashboard.
+
+- **Global Overview:** See all your sessions in one place, grouped by project
+  and sorted newest-first.
+- **Instant Resumption:** Resume a past session or start a fresh one in that
+  project folder directly from the dashboard.
+- **Deep AI Search:** Spin up a meta-session and let Claude search across every
+  transcript on your computer.
+- **One-Click Launch:** A desktop / Start-menu icon relaunches the dashboard
+  freshly re-indexed — no terminal, no cd-ing to the project folder.
+- **100% Local:** Your data never leaves your machine.
+
+Claude itself does the install — see below.
 
 ## Install
 
-Claude is the installer.
+Claude is the installer. Open a terminal, `cd` to the directory where you want
+ClaudeSessions to live, then paste:
 
 ```
 git clone https://github.com/dsopko/claude-sessions.git ClaudeSessions
 cd ClaudeSessions
-claude
-> set up ClaudeSessions
+claude "set up ClaudeSessions"
 ```
+
+This creates a `ClaudeSessions` folder containing the scripts and instructions
+to install and run Claude Sessions.
 
 Claude detects your environment, asks three questions (which terminal window,
 browser launch buttons yes/no, desktop shortcut yes/no), and runs one setup
