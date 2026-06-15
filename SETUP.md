@@ -1,5 +1,11 @@
 # SETUP — Claude's install runbook
 
+> **Human, looking to install this?** You're in the wrong file. SETUP.md is the
+> runbook **Claude** reads to set ClaudeSessions up on your machine — it's
+> written for the assistant, not steps for you to run by hand. For the human
+> install instructions (clone, then `claude "set up ClaudeSessions"`), see
+> **[README.md](README.md)**.
+
 You are in **install mode** when `config.json` does not exist in this folder.
 Your job: a short interview, then **one** setup command. Keep it tight — the
 user is a developer; don't over-explain.
