@@ -62,14 +62,30 @@ in parentheses or stays in the docs. Ask, with detected defaults pre-stated:
    per-user setting, no admin rights). One caution: once registered, any
    website *could* try those links; this tool validates them strictly, so
    the worst case is an unwanted Claude window opening in a folder you
-   already use. Details in SECURITY.md. If no, the page still shows
-   everything — you'd copy/paste resume commands instead of clicking."
+   already use. Details in SECURITY.md."
+   Offer two options:
+   - **Yes — one-click launch.** Clicking a session (and the +new / continue
+     buttons) opens it in a terminal. Also enables the page's "search with
+     Claude" button.
+   - **No thanks — I'll resume manually.** The page still shows everything; to
+     reopen a session, open a terminal in the project folder and paste its
+     resume command yourself. (This also hides the "search with Claude" button,
+     which needs the protocol — see the shortcut question next.)
 
-3. **Desktop shortcut?** "Want a 'Claude Sessions' icon on your desktop?
-   Two flavors: open the **page** directly (no Claude window — recommended),
-   or open a **Claude session** here (the page pops via the startup hook)."
-   Default: page. The page itself has a 'search with claude' button for the
-   conversational stuff, so most people want page mode.
+3. **Desktop shortcut?** "Want a 'Claude Sessions' icon on your desktop?"
+   Default: page. Offer three options:
+   - **Yes — open the page (recommended).** Opens the sessions page directly,
+     no Claude window. (If launch links are on, the page's "search with Claude"
+     button covers conversational search.)
+   - **Yes — open a Claude session.** Opens Claude in this folder for
+     conversational search; the page pops via the startup hook. Mainly for
+     people who declined launch links above — it's how you get Claude-powered
+     search without the page's search button.
+   - **No thanks.** No shortcut; you'll run
+     `scripts/windows/Update-SessionIndex.ps1` yourself when you want to
+     rebuild the index and open the page.
+   If the user declined launch links and wants conversational search, steer
+   them to "open a Claude session" rather than page mode.
 
 ## 4. Execute (single approval)
 
