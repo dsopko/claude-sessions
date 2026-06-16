@@ -1,0 +1,635 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Sessions</title>
+<style>
+  :root {
+    --ink: #0f131b;
+    --panel: #161b26;
+    --panel-2: #1b2130;
+    --line: #242c3d;
+    --text: #d8dde8;
+    --dim: #8a93a8;
+    --faint: #5c6478;
+    --amber: #ffb454;
+    --amber-dim: #b07a33;
+    --teal: #6cc5b9;
+    --red: #ff6b6b;
+    --mono: "Cascadia Code", Consolas, ui-monospace, "SF Mono", monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--ink); }
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+    padding: 28px clamp(16px, 4vw, 56px) 80px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  /* ---- header ---- */
+  header { margin-bottom: 22px; }
+  .title-row { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  h1 {
+    font-family: var(--mono);
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  h1 .tilde { color: var(--amber); }
+  .gen-stamp { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  .meta-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meta-line .machine { color: var(--teal); }
+  .meta-line .sep { color: var(--faint); margin: 0 7px; }
+  .retention-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+  .retention-line .num { color: var(--teal); }
+  .retention-line .warn { color: var(--red); }
+  /* sessions Claude Code will clean up within 7 days */
+  .row.expiring .cell.last-active { color: var(--red); font-weight: 600; cursor: help; }
+  .row.expiring .tick { background: var(--red); }
+
+  /* ---- controls ---- */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 20px 0 14px;
+    padding: 10px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .controls input[type="search"] {
+    flex: 1;
+    min-width: 220px;
+    background: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 7px 10px;
+    outline: none;
+  }
+  .controls input[type="search"]:focus-visible { border-color: var(--amber-dim); }
+  .controls input[type="search"]::placeholder { color: var(--faint); }
+  .controls select, .controls button {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--dim);
+    font-family: var(--sans);
+    font-size: 12.5px;
+    padding: 7px 10px;
+    cursor: pointer;
+  }
+  .controls select:hover, .controls button:hover { color: var(--text); border-color: var(--faint); }
+  .controls button[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-dim); }
+  .controls button:focus-visible, .controls select:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: 1px; }
+  .hint { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .count-line { font-size: 12.5px; color: var(--dim); margin: 0 0 10px 2px; }
+  .count-line strong { color: var(--text); font-weight: 600; }
+
+  /* ---- project groups ---- */
+  .group { margin-bottom: 18px; }
+  .group-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    border-bottom: 1px solid var(--line);
+    padding: 6px 2px;
+  }
+  .gh-toggle {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 2px 0;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .gh-toggle:hover .gh-path { color: var(--amber); }
+  .gh-toggle:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: -2px; }
+  .gh-actions { display: flex; gap: 6px; margin-left: auto; }
+  .gh-act {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    text-decoration: none;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
+  .gh-act:hover { color: var(--amber); border-color: var(--amber-dim); }
+  .gh-act:focus-visible { outline: 2px solid var(--amber-dim); }
+  .launch-link {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--ink);
+    background: var(--amber);
+    text-decoration: none;
+    border-radius: 4px;
+    padding: 2px 9px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .launch-link:hover { background: #ffc878; }
+  .launch-link:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: 1px; }
+  .gh-caret { color: var(--faint); font-size: 11px; width: 12px; transition: transform .12s; }
+  .group.collapsed .gh-caret { transform: rotate(-90deg); }
+  .gh-path { transition: color .1s; }
+  .gh-count { color: var(--faint); font-weight: 400; font-size: 12px; }
+  .gh-latest { color: var(--dim); font-weight: 400; font-size: 12px; font-family: var(--sans); }
+  .group.collapsed .rows { display: none; }
+
+  /* ---- session rows ---- */
+  .row {
+    display: grid;
+    grid-template-columns: 4px minmax(200px, 1fr) 110px 92px 92px 70px;
+    gap: 0 14px;
+    align-items: center;
+    padding: 9px 10px 9px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+    cursor: pointer;
+  }
+  .row:hover { background: var(--panel); }
+  .row:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: -2px; }
+  /* signature: recency heat tick â€” amber intensity encodes freshness */
+  .tick { width: 3px; height: 100%; min-height: 22px; border-radius: 2px; background: var(--amber); }
+  .prompt {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .prompt .named { color: var(--amber); }
+  .prompt .fork-mark { color: var(--teal); font-size: 11px; margin-right: 4px; }
+  .prompt.empty { color: var(--faint); font-style: italic; }
+  .cell { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cell.branch { font-family: var(--mono); color: var(--teal); font-size: 11.5px; }
+  .cell.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .col-heads {
+    display: grid;
+    grid-template-columns: 4px minmax(200px, 1fr) 110px 92px 92px 70px;
+    gap: 0 14px;
+    padding: 0 10px 4px 0;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--faint);
+  }
+  .col-heads .num { text-align: right; }
+
+  /* ---- expanded detail ---- */
+  .detail {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 6px 0 10px;
+    padding: 14px 16px;
+    cursor: default;
+  }
+  .detail .full-prompt {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-left: 2px solid var(--amber-dim);
+    padding-left: 12px;
+    margin-bottom: 12px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 14px; font-size: 12px; }
+  .kv dt { color: var(--faint); }
+  .kv dd { font-family: var(--mono); color: var(--dim); word-break: break-all; display: flex; align-items: center; gap: 8px; }
+  .copy-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--dim);
+    font-family: var(--sans);
+    font-size: 11px;
+    padding: 2px 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .copy-btn:hover { color: var(--amber); border-color: var(--amber-dim); }
+  .copy-btn:focus-visible { outline: 2px solid var(--amber-dim); }
+  .resume-cmd { color: var(--amber) !important; }
+
+  .empty-state {
+    text-align: center;
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 60px 0;
+  }
+
+  @media (max-width: 760px) {
+    .row, .col-heads { grid-template-columns: 4px 1fr 80px; }
+    .cell.branch, .cell.started, .col-heads .branch, .col-heads .started,
+    .cell.dur, .col-heads .dur { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1><span class="tilde">~</span>/.claude/projects</h1>
+    <span class="gen-stamp" id="genStamp"></span>
+  </div>
+  <div class="meta-line" id="metaLine"></div>
+  <div class="retention-line" id="retentionLine"></div>
+</header>
+
+<div class="controls">
+  <input type="search" id="filter" placeholder="filter prompts, paths, branches, ids&hellip;" autocomplete="off">
+  <select id="sortBy" title="Sort sessions">
+    <option value="lastActivity">last activity</option>
+    <option value="startTime">start date</option>
+    <option value="durationMin">duration</option>
+    <option value="sizeBytes">size</option>
+  </select>
+  <button id="groupToggle" aria-pressed="true" title="Group sessions by project">group by project</button>
+  <button id="collapseAll" title="Collapse or expand all groups">collapse all</button>
+  <button id="refreshBtn" title="Re-scan transcripts, then reload the page">&#x21bb; refresh</button>
+  <a class="gh-act" id="assistBtn" href="claudesessions://assist/start"
+     title="Open a Claude session in this folder to search transcripts conversationally">&#x2315; search with claude</a>
+  <span class="hint">/ to search</span>
+</div>
+
+<p class="count-line" id="countLine"></p>
+<div id="list"></div>
+
+<script>window.SESSION_DATA = {"generated":"2026-06-16T02:59:12.4083638Z","machine":"DEV-WORKSTATION","claudeDir":"C:\\Users\\dev\\.claude","launchEnabled":true,"cleanupPeriodDays":30,"sessions":[{"sessionId":"1fee12c2-a7ae-46eb-a8c0-1cc8c849bde6","title":"Checkout redesign","firstPrompt":"Redesign the checkout flow to cut cart abandonment. Start with a single-page address + payment step and validate inline.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"feat/checkout","version":"1.2.47","startTime":"2026-06-16T00:59:12.4083638Z","lastActivity":"2026-06-16T02:34:12.4083638Z","durationMin":95,"sizeBytes":482113,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"508aeebd-31f7-4e97-b4d3-a0e1e8775436","title":null,"firstPrompt":"Getting a React hydration mismatch warning on the product page, only in production. Help me track down the source.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"fix/hydration","version":"1.2.47","startTime":"2026-06-16T00:21:12.4083638Z","lastActivity":"2026-06-16T00:59:12.4083638Z","durationMin":38,"sizeBytes":151204,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"93561b6f-beb1-4929-b281-c6639e031676","title":"Stripe webhooks","firstPrompt":"Wire up Stripe webhook handling for payment_intent.succeeded and charge.refunded, with idempotency keys.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"main","version":"1.2.46","startTime":"2026-06-15T18:48:12.4083638Z","lastActivity":"2026-06-15T20:59:12.4083638Z","durationMin":131,"sizeBytes":723880,"isFork":true,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"a9928fb8-d144-4bcb-808c-7b0013b4d633","title":null,"firstPrompt":"Add unit tests for the cart reducer covering merge, quantity clamp, and coupon application.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"feat/checkout","version":"1.2.46","startTime":"2026-06-14T23:40:12.4083638Z","lastActivity":"2026-06-14T23:59:12.4083638Z","durationMin":19,"sizeBytes":88990,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"235d763c-54d7-4ddd-8a7f-78d7569acc96","title":"Rate limiting","firstPrompt":"Implement token-bucket rate limiting middleware backed by Redis, keyed per API token.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"feat/rate-limit","version":"1.2.46","startTime":"2026-06-15T03:45:12.4083638Z","lastActivity":"2026-06-15T04:59:12.4083638Z","durationMin":74,"sizeBytes":341006,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"394ae02b-5fef-4a44-811a-34f1b725a2a5","title":null,"firstPrompt":"Migrate the users table to add a soft-delete column and backfill existing rows safely.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"main","version":"1.2.45","startTime":"2026-06-14T12:03:12.4083638Z","lastActivity":"2026-06-14T12:59:12.4083638Z","durationMin":56,"sizeBytes":210773,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"eb9d2f21-694f-42ce-bedc-d1599b349bf9","title":null,"firstPrompt":"Why is the /health endpoint returning 503 under load? Walk through the connection pool config.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"main","version":"1.2.45","startTime":"2026-06-13T02:47:12.4083638Z","lastActivity":"2026-06-13T02:59:12.4083638Z","durationMin":12,"sizeBytes":61240,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"3eeabde9-2ab0-41e0-862d-89dead09d53c","title":"Staging VPC","firstPrompt":"Stand up a staging VPC with private subnets, a NAT gateway, and tagged route tables in Terraform.","cwd":"C:\\Users\\dev\\infra\\terraform","projectDir":"C--Users-dev-infra-terraform","gitBranch":"main","version":"1.2.44","startTime":"2026-06-12T00:37:12.4083638Z","lastActivity":"2026-06-12T02:59:12.4083638Z","durationMin":142,"sizeBytes":511902,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-infra-terraform\\session.jsonl"},{"sessionId":"9902aff8-4059-42d2-af38-512637edf6d6","title":null,"firstPrompt":"terraform plan shows a forced replacement on the RDS instance. What attribute changed and how do I avoid it?","cwd":"C:\\Users\\dev\\infra\\terraform","projectDir":"C--Users-dev-infra-terraform","gitBranch":"main","version":"1.2.42","startTime":"2026-06-07T02:28:12.4083638Z","lastActivity":"2026-06-07T02:59:12.4083638Z","durationMin":31,"sizeBytes":109887,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-infra-terraform\\session.jsonl"},{"sessionId":"ba3d9de8-9813-4b56-a036-b6b2b962c9af","title":null,"firstPrompt":"Set up a cross-platform tmux config with sane copy-mode bindings and a minimal status line.","cwd":"C:\\Users\\dev\\code\\dotfiles","projectDir":"C--Users-dev-code-dotfiles","gitBranch":"main","version":"1.2.40","startTime":"2026-05-22T02:41:12.4083638Z","lastActivity":"2026-05-22T02:59:12.4083638Z","durationMin":18,"sizeBytes":70210,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-dotfiles\\session.jsonl"},{"sessionId":"2e4595cd-29da-47b0-89d1-2abf2b5109d2","title":"Neovim LSP","firstPrompt":"Configure nvim LSP for typescript, lua, and go with format-on-save and inlay hints.","cwd":"C:\\Users\\dev\\code\\dotfiles","projectDir":"C--Users-dev-code-dotfiles","gitBranch":"main","version":"1.2.40","startTime":"2026-05-21T01:58:12.4083638Z","lastActivity":"2026-05-21T02:59:12.4083638Z","durationMin":61,"sizeBytes":231559,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-dotfiles\\session.jsonl"},{"sessionId":"389a2acb-c8e9-4cd5-965f-182334432299","title":null,"firstPrompt":"Implement A* pathfinding for the enemy AI on a tile grid with weighted terrain.","cwd":"C:\\Users\\dev\\code\\pico-game","projectDir":"C--Users-dev-code-pico-game","gitBranch":"main","version":"1.2.39","startTime":"2026-05-20T02:15:12.4083638Z","lastActivity":"2026-05-20T02:59:12.4083638Z","durationMin":44,"sizeBytes":160338,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-pico-game\\session.jsonl"},{"sessionId":"6aa4bb7c-fba7-42f2-9f61-f676f6c792c0","title":"Sprite batching","firstPrompt":"Batch sprite draws to cut frame time; we are at 18ms, target is 8ms. Profile first.","cwd":"C:\\Users\\dev\\code\\pico-game","projectDir":"C--Users-dev-code-pico-game","gitBranch":"feat/render","version":"1.2.39","startTime":"2026-05-19T01:38:12.4083638Z","lastActivity":"2026-05-19T02:59:12.4083638Z","durationMin":81,"sizeBytes":291004,"isFork":true,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-pico-game\\session.jsonl"}]};</script>
+<script>
+(function () {
+  'use strict';
+  const DATA = window.SESSION_DATA || { sessions: [], generated: null };
+  const CAN_LAUNCH = DATA.launchEnabled !== false;   // old indexes (no flag) keep buttons
+  if (!CAN_LAUNCH) { const b = document.getElementById('assistBtn'); if (b) b.remove(); }
+
+  // Retention: Claude Code deletes a transcript cleanupPeriodDays after its last
+  // activity. Old indexes lack the field -> assume the 30-day default. A very
+  // large value (>= 10y) means the user has effectively disabled cleanup.
+  const DAY_MS = 86400000;
+  const CLEANUP_DAYS = Number(DATA.cleanupPeriodDays) || 30;
+  const NEVER_EXPIRE = CLEANUP_DAYS >= 3650;
+  const daysUntilExpiry = iso => {
+    if (NEVER_EXPIRE || !iso) return null;
+    const t = new Date(iso).getTime();
+    if (isNaN(t)) return null;
+    return Math.ceil((t + CLEANUP_DAYS * DAY_MS - Date.now()) / DAY_MS);
+  };
+  const expiryLabel = d => {
+    if (d == null) return '';
+    if (d < 0) return 'expired â€” pending cleanup';
+    if (d === 0) return 'session expires today';
+    return `session expires in ${d} day${d === 1 ? '' : 's'}`;
+  };
+  const $list = document.getElementById('list');
+  const $filter = document.getElementById('filter');
+  const $sortBy = document.getElementById('sortBy');
+  const $groupToggle = document.getElementById('groupToggle');
+  const $collapseAll = document.getElementById('collapseAll');
+  const $refresh = document.getElementById('refreshBtn');
+
+  const state = {
+    filter: '',
+    sortBy: 'lastActivity',
+    grouped: true,
+    expanded: new Set(),          // sessionIds with open detail
+    collapsedGroups: new Set(),   // projectDir names
+    allCollapsed: false
+  };
+
+  /* ---------- formatting ---------- */
+  const relTime = iso => {
+    if (!iso) return 'â€”';
+    const ms = Date.now() - new Date(iso).getTime();
+    if (isNaN(ms)) return 'â€”';
+    const m = Math.floor(ms / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + 'm ago';
+    const h = Math.floor(m / 60);
+    if (h < 24) return h + 'h ago';
+    const d = Math.floor(h / 24);
+    if (d < 14) return d + 'd ago';
+    if (d < 60) return Math.floor(d / 7) + 'w ago';
+    return Math.floor(d / 30) + 'mo ago';
+  };
+  const shortDate = iso => {
+    if (!iso) return 'â€”';
+    const d = new Date(iso);
+    if (isNaN(d)) return 'â€”';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+      (d.getFullYear() !== new Date().getFullYear() ? ' ' + String(d.getFullYear()).slice(2) : '');
+  };
+  const fmtDur = min => {
+    if (min == null) return 'â€”';
+    if (min < 1) return '<1m';
+    if (min < 60) return Math.round(min) + 'm';
+    const h = min / 60;
+    if (h < 48) return h.toFixed(h < 10 ? 1 : 0) + 'h';
+    return Math.round(h / 24) + 'd';
+  };
+  const fmtSize = b => {
+    if (b == null) return 'â€”';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(0) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  };
+  // Recency -> tick opacity: full amber under 1h, fading to near-invisible at 30d.
+  const heat = iso => {
+    if (!iso) return 0.06;
+    const hrs = (Date.now() - new Date(iso).getTime()) / 3600000;
+    if (isNaN(hrs)) return 0.06;
+    if (hrs <= 1) return 1;
+    if (hrs >= 720) return 0.06;
+    return Math.max(0.06, 1 - Math.log(hrs) / Math.log(720));
+  };
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ---------- data ---------- */
+  function visibleSessions() {
+    const q = state.filter.trim().toLowerCase();
+    let rows = DATA.sessions.slice();
+    if (q) {
+      rows = rows.filter(s =>
+        (s.firstPrompt || '').toLowerCase().includes(q) ||
+        (s.title || '').toLowerCase().includes(q) ||
+        (s.cwd || '').toLowerCase().includes(q) ||
+        (s.gitBranch || '').toLowerCase().includes(q) ||
+        (s.sessionId || '').toLowerCase().includes(q));
+    }
+    const k = state.sortBy;
+    rows.sort((a, b) => {
+      const av = a[k], bv = b[k];
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (k === 'durationMin' || k === 'sizeBytes') ? bv - av
+        : String(bv).localeCompare(String(av));
+    });
+    return rows;
+  }
+
+  /* ---------- render ---------- */
+  function rowHtml(s) {
+    const label = s.title
+      ? `<span class="named">${esc(s.title)}</span>`
+      : s.firstPrompt ? esc(s.firstPrompt) : null;
+    const promptCls = label ? 'prompt' : 'prompt empty';
+    const fork = s.isFork ? '<span class="fork-mark" title="resumed / branched lineage">&#x2387;</span>' : '';
+    const open = state.expanded.has(s.sessionId);
+    const exp = daysUntilExpiry(s.lastActivity);
+    const expiring = exp != null && exp <= 7;
+    const lastTitle = expiring ? expiryLabel(exp) : (s.lastActivity || '');
+    return `
+      <div class="row${expiring ? ' expiring' : ''}" role="button" tabindex="0" data-id="${esc(s.sessionId)}"
+           aria-expanded="${open}">
+        <span class="tick" style="opacity:${heat(s.lastActivity).toFixed(2)}"
+              title="last activity ${esc(relTime(s.lastActivity))}"></span>
+        <span class="${promptCls}">${fork}${label || '(no prompt captured)'}</span>
+        <span class="cell branch">${esc(s.gitBranch || 'â€”')}</span>
+        <span class="cell started num" title="${esc(s.startTime || '')}">${shortDate(s.startTime)}</span>
+        <span class="cell num last-active" title="${esc(lastTitle)}">${relTime(s.lastActivity)}</span>
+        <span class="cell dur num">${fmtDur(s.durationMin)}</span>
+      </div>
+      ${open ? detailHtml(s) : ''}`;
+  }
+
+  function detailHtml(s) {
+    const resume = 'claude --resume ' + s.sessionId;
+    return `
+      <div class="detail" data-detail="${esc(s.sessionId)}">
+        ${s.firstPrompt ? `<div class="full-prompt">${esc(s.firstPrompt)}</div>` : ''}
+        <dl class="kv">
+          <dt>resume</dt>
+          <dd><span class="resume-cmd">${esc(resume)}</span>
+              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}">launch</a>` : ''}
+              <button class="copy-btn" data-copy="${esc(resume)}">copy</button></dd>
+          <dt>session id</dt>
+          <dd>${esc(s.sessionId)}
+              <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button></dd>
+          <dt>directory</dt><dd>${esc(s.cwd || 'â€”')}</dd>
+          <dt>size</dt><dd>${fmtSize(s.sizeBytes)}</dd>
+          <dt>version</dt><dd>${esc(s.version || 'â€”')}</dd>
+          <dt>file</dt><dd>${esc(s.filePath || 'â€”')}</dd>
+        </dl>
+      </div>`;
+  }
+
+  const colHeads = `
+    <div class="col-heads">
+      <span></span><span>session</span><span class="branch">branch</span>
+      <span class="started num">started</span><span class="num">last active</span>
+      <span class="dur num">dur</span>
+    </div>`;
+
+  function render() {
+    const rows = visibleSessions();
+    const projects = new Set(rows.map(s => s.projectDir));
+    document.getElementById('countLine').innerHTML =
+      `<strong>${rows.length}</strong> session${rows.length === 1 ? '' : 's'}` +
+      ` across <strong>${projects.size}</strong> project${projects.size === 1 ? '' : 's'}` +
+      (state.filter ? ` matching &ldquo;${esc(state.filter)}&rdquo;` : '');
+
+    if (!rows.length) {
+      $list.innerHTML = `<div class="empty-state">no sessions match â€” clear the filter or re-run Update-SessionIndex.ps1</div>`;
+      return;
+    }
+
+    if (!state.grouped) {
+      $list.innerHTML = colHeads + rows.map(rowHtml).join('');
+      return;
+    }
+
+    // group by project, ordered by each group's most recent activity
+    const groups = new Map();
+    for (const s of rows) {
+      if (!groups.has(s.projectDir)) groups.set(s.projectDir, []);
+      groups.get(s.projectDir).push(s);
+    }
+    // groups order by MAX(sortKey) so the chosen sort drives the group order too
+    const k = state.sortBy;
+    const numeric = (k === 'durationMin' || k === 'sizeBytes');
+    const groupMax = items => items.reduce((m, s) => {
+      const v = s[k];
+      if (v == null) return m;
+      if (m == null) return v;
+      return numeric ? (v > m ? v : m)
+                     : (String(v).localeCompare(String(m)) > 0 ? v : m);
+    }, null);
+    const ordered = [...groups.entries()].sort((a, b) => {
+      const av = groupMax(a[1]), bv = groupMax(b[1]);
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return numeric ? bv - av : String(bv).localeCompare(String(av));
+    });
+
+    $list.innerHTML = ordered.map(([dir, items]) => {
+      const collapsed = state.collapsedGroups.has(dir);
+      const latest = items.reduce((m, s) => s.lastActivity > m ? s.lastActivity : m, '');
+      const label = items[0].cwd || dir;
+      return `
+        <section class="group ${collapsed ? 'collapsed' : ''}">
+          <div class="group-header">
+            <button class="gh-toggle" data-group="${esc(dir)}" aria-expanded="${!collapsed}">
+              <span class="gh-caret">&#9660;</span>
+              <span class="gh-path">${esc(label)}</span>
+              <span class="gh-count">(${items.length})</span>
+            </button>
+            ${CAN_LAUNCH ? `<span class="gh-actions">
+              <a class="gh-act" href="claudesessions://continue/${esc(dir)}"
+                 title="claude --continue in ${esc(label)}">&#x27F3; continue</a>
+              <a class="gh-act" href="claudesessions://new/${esc(dir)}"
+                 title="new claude session in ${esc(label)}">+ new</a>
+            </span>` : ''}
+            <span class="gh-latest">${relTime(latest)}</span>
+          </div>
+          <div class="rows">${colHeads}${items.map(rowHtml).join('')}</div>
+        </section>`;
+    }).join('');
+  }
+
+  /* ---------- header ---------- */
+  function renderHeader() {
+    const g = DATA.generated ? new Date(DATA.generated) : null;
+    const stamp = document.getElementById('genStamp');
+    stamp.textContent = g ? 'indexed ' + relTime(DATA.generated) : 'no index â€” run Update-SessionIndex.ps1';
+    stamp.title = g ? 'index generated ' + g.toLocaleString() : '';
+    document.getElementById('metaLine').innerHTML =
+      `<span class="machine">${esc(DATA.machine || 'this machine')}</span>` +
+      (DATA.claudeDir ? `<span class="sep">Â·</span>${esc(DATA.claudeDir)}` : '');
+
+    const rl = document.getElementById('retentionLine');
+    if (NEVER_EXPIRE) {
+      rl.textContent = 'sessions never expire';
+    } else {
+      const soon = DATA.sessions.reduce((n, s) => {
+        const d = daysUntilExpiry(s.lastActivity);
+        return n + (d != null && d <= 7 ? 1 : 0);
+      }, 0);
+      rl.innerHTML = `sessions expire <span class="num">${CLEANUP_DAYS} days</span> after last activity` +
+        (soon ? ` &middot; <span class="warn">${soon} expiring within 7 days</span>` : '');
+    }
+  }
+
+  /* ---------- events ---------- */
+  function copyText(t, btn) {
+    const done = () => { btn.textContent = 'copied'; setTimeout(() => btn.textContent = 'copy', 1200); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(done).catch(() => fallback());
+    } else fallback();
+    function fallback() {
+      const ta = document.createElement('textarea');
+      ta.value = t; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove(); done();
+    }
+  }
+
+  $list.addEventListener('click', e => {
+    const copy = e.target.closest('.copy-btn');
+    if (copy) { copyText(copy.dataset.copy, copy); e.stopPropagation(); return; }
+    if (e.target.closest('.detail')) return;
+    if (e.target.closest('.gh-act') || e.target.closest('.launch-link')) return; // let the link navigate
+    const gh = e.target.closest('.gh-toggle');
+    if (gh) {
+      const d = gh.dataset.group;
+      state.collapsedGroups.has(d) ? state.collapsedGroups.delete(d) : state.collapsedGroups.add(d);
+      render(); return;
+    }
+    const row = e.target.closest('.row');
+    if (row) {
+      const id = row.dataset.id;
+      state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id);
+      render();
+    }
+  });
+  $list.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('row')) {
+      e.preventDefault(); e.target.click();
+    }
+  });
+
+  $filter.addEventListener('input', () => { state.filter = $filter.value; render(); });
+  $sortBy.addEventListener('change', () => { state.sortBy = $sortBy.value; render(); });
+  $groupToggle.addEventListener('click', () => {
+    state.grouped = !state.grouped;
+    $groupToggle.setAttribute('aria-pressed', state.grouped);
+    render();
+  });
+  $collapseAll.addEventListener('click', () => {
+    state.allCollapsed = !state.allCollapsed;
+    state.collapsedGroups = state.allCollapsed
+      ? new Set(DATA.sessions.map(s => s.projectDir)) : new Set();
+    $collapseAll.textContent = state.allCollapsed ? 'expand all' : 'collapse all';
+    render();
+  });
+  $refresh.addEventListener('click', () => {
+    if (!CAN_LAUNCH) {
+      // Protocol not registered: we can't reindex, only re-read what's on disk.
+      location.reload();
+      return;
+    }
+    // Fire the no-data reindex verb; the hidden handler regenerates data.js.
+    $refresh.disabled = true;
+    $refresh.textContent = 'reindexingâ€¦';
+    location.href = 'claudesessions://reindex/now';
+    // The handler runs out-of-process and file:// can't observe its completion,
+    // so allow time for the rescan, then reload to pick up the fresh data.js.
+    setTimeout(() => location.reload(), 3000);
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement !== $filter) {
+      e.preventDefault(); $filter.focus();
+    }
+    if (e.key === 'Escape' && document.activeElement === $filter) {
+      $filter.value = ''; state.filter = ''; render(); $filter.blur();
+    }
+  });
+
+  renderHeader();
+  render();
+  // The page is static once loaded; keep the relative "indexed Nm ago" stamp
+  // (and the "expiring within 7 days" tally) honest as the tab sits open.
+  setInterval(renderHeader, 60000);
+})();
+</script>
+</body>
+</html>
+
