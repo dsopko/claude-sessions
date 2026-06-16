@@ -58,7 +58,21 @@ see `scripts/posix/README.md`.
 - `/` focuses the filter, Esc clears. Matches prompts, titles, paths,
   branches, ids.
 - Sort by last activity / start date / duration / size; group by project.
+  When grouped, projects are ordered by `MAX(sort key)` so the chosen sort
+  drives the group order too, and sessions within a project follow the same
+  key — grouping never breaks the sort.
 - Amber left-edge tick = recency (bright under an hour, fading over 30 days).
+- **Expiry warning.** Claude Code deletes a transcript `cleanupPeriodDays`
+  after its last activity (default 30). The header states the policy (or
+  "sessions never expire" when it's set to years), and any session due for
+  cleanup within 7 days turns its tick and last-active time red, with a hover
+  tooltip counting down the days.
+- **↻ refresh** re-scans your transcripts (regenerates `data.js`) and reloads.
+  Note: a plain browser reload only re-reads the existing index — only this
+  button, the desktop icon, or a Claude session re-indexes. Falls back to a
+  plain reload when the protocol isn't registered.
+- The "indexed Nm ago" stamp self-updates while the tab sits open; hover it
+  for the absolute index time.
 - Row click: full first prompt, session id, **launch** (resume in its own
   directory), copy-ready resume command.
 - Group headers: **+ new** and **continue** for that project. Buttons appear

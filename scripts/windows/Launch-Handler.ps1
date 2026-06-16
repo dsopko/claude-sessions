@@ -10,6 +10,8 @@
       claudesessions://continue/<projectKey>     claude --continue in that project
       claudesessions://assist/start              claude session in the install folder,
                                                  fixed kickoff prompt (search assistant)
+      claudesessions://reindex/now               regenerate data.js (no terminal,
+                                                 no data from the URL)
 
     SECURITY MODEL: once registered, ANY webpage can attempt these URLs, so
     the URL is treated as hostile input. The argument is matched against a
@@ -37,7 +39,7 @@ function Show-Message {
 try {
     # --- parse + validate (hostile input) ------------------------------------
     $decoded = [System.Uri]::UnescapeDataString($Url).Trim()
-    if ($decoded -notmatch '^claudesessions://(resume|new|continue|assist)/([^/?#]+)/?$') {
+    if ($decoded -notmatch '^claudesessions://(resume|new|continue|assist|reindex)/([^/?#]+)/?$') {
         Show-Message "Unrecognized link:`n$Url"
         exit 1
     }
@@ -56,9 +58,29 @@ try {
         Show-Message "Invalid assist link."
         exit 1
     }
-    if ($verb -notin @('resume','assist') -and $arg -notmatch $keyPattern) {
+    if ($verb -eq 'reindex' -and $arg -ne 'now') {
+        # reindex takes no data - the argument must be the literal 'now'
+        Show-Message "Invalid reindex link."
+        exit 1
+    }
+    if ($verb -notin @('resume','assist','reindex') -and $arg -notmatch $keyPattern) {
         Show-Message "Invalid project key in link."
         exit 1
+    }
+
+    # reindex: no terminal, no claude, nothing from the URL. Just regenerate
+    # data.js by running the indexer in-process (the handler is already hidden).
+    # Handled here, before any index load, because it does not launch a session.
+    if ($verb -eq 'reindex') {
+        $scriptDir = $PSScriptRoot
+        if (-not $scriptDir) { $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition }
+        $updater = Join-Path $scriptDir 'Update-SessionIndex.ps1'
+        if (-not (Test-Path $updater)) {
+            Show-Message "Indexer not found:`n$updater"
+            exit 1
+        }
+        & $updater -NoLaunch
+        exit 0
     }
 
     # --- load index (the only source of truth) --------------------------------

@@ -79,4 +79,9 @@ resume command when a result looks like something they want to reopen.
 cwd, projectDir, gitBranch, version, startTime, lastActivity, durationMin,
 sizeBytes, isFork (summary-line lineage detected), filePath`
 
+Top-level (alongside `sessions`): `generated, machine, claudeDir, launchEnabled,
+cleanupPeriodDays`. The last is read from the user's `settings.json` (default 30)
+so the viewer can show per-session expiry — Claude Code deletes a transcript that
+many days after its last activity. The page flags sessions due within 7 days.
+
 Sub-agent transcripts (`agent-*.jsonl`) are excluded from the index.

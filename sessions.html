@@ -16,6 +16,7 @@
     --amber: #ffb454;
     --amber-dim: #b07a33;
     --teal: #6cc5b9;
+    --red: #ff6b6b;
     --mono: "Cascadia Code", Consolas, ui-monospace, "SF Mono", monospace;
     --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
   }
@@ -42,17 +43,28 @@
   }
   h1 .tilde { color: var(--amber); }
   .gen-stamp { font-family: var(--mono); font-size: 12px; color: var(--faint); }
-  .jsonl-line {
+  .meta-line {
     font-family: var(--mono);
     font-size: 12px;
-    color: var(--faint);
+    color: var(--dim);
     margin-top: 6px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .jsonl-line .k { color: var(--dim); }
-  .jsonl-line .v { color: var(--teal); }
+  .meta-line .machine { color: var(--teal); }
+  .meta-line .sep { color: var(--faint); margin: 0 7px; }
+  .retention-line {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--dim);
+    margin-top: 4px;
+  }
+  .retention-line .num { color: var(--teal); }
+  .retention-line .warn { color: var(--red); }
+  /* sessions Claude Code will clean up within 7 days */
+  .row.expiring .cell.last-active { color: var(--red); font-weight: 600; cursor: help; }
+  .row.expiring .tick { background: var(--red); }
 
   /* ---- controls ---- */
   .controls {
@@ -259,7 +271,8 @@
     <h1><span class="tilde">~</span>/.claude/projects</h1>
     <span class="gen-stamp" id="genStamp"></span>
   </div>
-  <div class="jsonl-line" id="jsonlLine"></div>
+  <div class="meta-line" id="metaLine"></div>
+  <div class="retention-line" id="retentionLine"></div>
 </header>
 
 <div class="controls">
@@ -272,6 +285,7 @@
   </select>
   <button id="groupToggle" aria-pressed="true" title="Group sessions by project">group by project</button>
   <button id="collapseAll" title="Collapse or expand all groups">collapse all</button>
+  <button id="refreshBtn" title="Re-scan transcripts, then reload the page">&#x21bb; refresh</button>
   <a class="gh-act" id="assistBtn" href="claudesessions://assist/start"
      title="Open a Claude session in this folder to search transcripts conversationally">&#x2315; search with claude</a>
   <span class="hint">/ to search</span>
@@ -287,11 +301,31 @@
   const DATA = window.SESSION_DATA || { sessions: [], generated: null };
   const CAN_LAUNCH = DATA.launchEnabled !== false;   // old indexes (no flag) keep buttons
   if (!CAN_LAUNCH) { const b = document.getElementById('assistBtn'); if (b) b.remove(); }
+
+  // Retention: Claude Code deletes a transcript cleanupPeriodDays after its last
+  // activity. Old indexes lack the field -> assume the 30-day default. A very
+  // large value (>= 10y) means the user has effectively disabled cleanup.
+  const DAY_MS = 86400000;
+  const CLEANUP_DAYS = Number(DATA.cleanupPeriodDays) || 30;
+  const NEVER_EXPIRE = CLEANUP_DAYS >= 3650;
+  const daysUntilExpiry = iso => {
+    if (NEVER_EXPIRE || !iso) return null;
+    const t = new Date(iso).getTime();
+    if (isNaN(t)) return null;
+    return Math.ceil((t + CLEANUP_DAYS * DAY_MS - Date.now()) / DAY_MS);
+  };
+  const expiryLabel = d => {
+    if (d == null) return '';
+    if (d < 0) return 'expired — pending cleanup';
+    if (d === 0) return 'session expires today';
+    return `session expires in ${d} day${d === 1 ? '' : 's'}`;
+  };
   const $list = document.getElementById('list');
   const $filter = document.getElementById('filter');
   const $sortBy = document.getElementById('sortBy');
   const $groupToggle = document.getElementById('groupToggle');
   const $collapseAll = document.getElementById('collapseAll');
+  const $refresh = document.getElementById('refreshBtn');
 
   const state = {
     filter: '',
@@ -381,15 +415,18 @@
     const promptCls = label ? 'prompt' : 'prompt empty';
     const fork = s.isFork ? '<span class="fork-mark" title="resumed / branched lineage">&#x2387;</span>' : '';
     const open = state.expanded.has(s.sessionId);
+    const exp = daysUntilExpiry(s.lastActivity);
+    const expiring = exp != null && exp <= 7;
+    const lastTitle = expiring ? expiryLabel(exp) : (s.lastActivity || '');
     return `
-      <div class="row" role="button" tabindex="0" data-id="${esc(s.sessionId)}"
+      <div class="row${expiring ? ' expiring' : ''}" role="button" tabindex="0" data-id="${esc(s.sessionId)}"
            aria-expanded="${open}">
         <span class="tick" style="opacity:${heat(s.lastActivity).toFixed(2)}"
               title="last activity ${esc(relTime(s.lastActivity))}"></span>
         <span class="${promptCls}">${fork}${label || '(no prompt captured)'}</span>
         <span class="cell branch">${esc(s.gitBranch || '—')}</span>
         <span class="cell started num" title="${esc(s.startTime || '')}">${shortDate(s.startTime)}</span>
-        <span class="cell num" title="${esc(s.lastActivity || '')}">${relTime(s.lastActivity)}</span>
+        <span class="cell num last-active" title="${esc(lastTitle)}">${relTime(s.lastActivity)}</span>
         <span class="cell dur num">${fmtDur(s.durationMin)}</span>
       </div>
       ${open ? detailHtml(s) : ''}`;
@@ -447,9 +484,21 @@
       if (!groups.has(s.projectDir)) groups.set(s.projectDir, []);
       groups.get(s.projectDir).push(s);
     }
+    // groups order by MAX(sortKey) so the chosen sort drives the group order too
+    const k = state.sortBy;
+    const numeric = (k === 'durationMin' || k === 'sizeBytes');
+    const groupMax = items => items.reduce((m, s) => {
+      const v = s[k];
+      if (v == null) return m;
+      if (m == null) return v;
+      return numeric ? (v > m ? v : m)
+                     : (String(v).localeCompare(String(m)) > 0 ? v : m);
+    }, null);
     const ordered = [...groups.entries()].sort((a, b) => {
-      const last = g => g.reduce((m, s) => s.lastActivity > m ? s.lastActivity : m, '');
-      return last(b[1]).localeCompare(last(a[1]));
+      const av = groupMax(a[1]), bv = groupMax(b[1]);
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return numeric ? bv - av : String(bv).localeCompare(String(av));
     });
 
     $list.innerHTML = ordered.map(([dir, items]) => {
@@ -480,12 +529,24 @@
   /* ---------- header ---------- */
   function renderHeader() {
     const g = DATA.generated ? new Date(DATA.generated) : null;
-    document.getElementById('genStamp').textContent =
-      g ? 'indexed ' + relTime(DATA.generated) : 'no index — run Update-SessionIndex.ps1';
-    document.getElementById('jsonlLine').innerHTML =
-      `{<span class="k">"machine"</span>: <span class="v">"${esc(DATA.machine || '?')}"</span>, ` +
-      `<span class="k">"sessions"</span>: <span class="v">${DATA.sessions.length}</span>, ` +
-      `<span class="k">"generated"</span>: <span class="v">"${g ? g.toLocaleString() : 'never'}"</span>}`;
+    const stamp = document.getElementById('genStamp');
+    stamp.textContent = g ? 'indexed ' + relTime(DATA.generated) : 'no index — run Update-SessionIndex.ps1';
+    stamp.title = g ? 'index generated ' + g.toLocaleString() : '';
+    document.getElementById('metaLine').innerHTML =
+      `<span class="machine">${esc(DATA.machine || 'this machine')}</span>` +
+      (DATA.claudeDir ? `<span class="sep">·</span>${esc(DATA.claudeDir)}` : '');
+
+    const rl = document.getElementById('retentionLine');
+    if (NEVER_EXPIRE) {
+      rl.textContent = 'sessions never expire';
+    } else {
+      const soon = DATA.sessions.reduce((n, s) => {
+        const d = daysUntilExpiry(s.lastActivity);
+        return n + (d != null && d <= 7 ? 1 : 0);
+      }, 0);
+      rl.innerHTML = `sessions expire <span class="num">${CLEANUP_DAYS} days</span> after last activity` +
+        (soon ? ` &middot; <span class="warn">${soon} expiring within 7 days</span>` : '');
+    }
   }
 
   /* ---------- events ---------- */
@@ -539,6 +600,20 @@
     $collapseAll.textContent = state.allCollapsed ? 'expand all' : 'collapse all';
     render();
   });
+  $refresh.addEventListener('click', () => {
+    if (!CAN_LAUNCH) {
+      // Protocol not registered: we can't reindex, only re-read what's on disk.
+      location.reload();
+      return;
+    }
+    // Fire the no-data reindex verb; the hidden handler regenerates data.js.
+    $refresh.disabled = true;
+    $refresh.textContent = 'reindexing…';
+    location.href = 'claudesessions://reindex/now';
+    // The handler runs out-of-process and file:// can't observe its completion,
+    // so allow time for the rescan, then reload to pick up the fresh data.js.
+    setTimeout(() => location.reload(), 3000);
+  });
   document.addEventListener('keydown', e => {
     if (e.key === '/' && document.activeElement !== $filter) {
       e.preventDefault(); $filter.focus();
@@ -550,6 +625,9 @@
 
   renderHeader();
   render();
+  // The page is static once loaded; keep the relative "indexed Nm ago" stamp
+  // (and the "expiring within 7 days" tally) honest as the tab sits open.
+  setInterval(renderHeader, 60000);
 })();
 </script>
 </body>

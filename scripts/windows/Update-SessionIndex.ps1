@@ -187,12 +187,27 @@ if (Test-Path $configPath) {
     } catch { Write-Warning "config.json unreadable; launch buttons disabled." }
 }
 
+# Retention window: Claude Code deletes transcripts older than cleanupPeriodDays
+# (measured by last activity). Default is 30 when the key is absent. Read from
+# the user's settings.json so the viewer can show per-session expiry.
+$cleanupPeriodDays = 30
+$settingsPath = Join-Path $ClaudeDir 'settings.json'
+if (Test-Path $settingsPath) {
+    try {
+        $settings = Get-Content -Path $settingsPath -Raw | ConvertFrom-Json
+        if ($null -ne $settings.cleanupPeriodDays) {
+            $cleanupPeriodDays = [int]$settings.cleanupPeriodDays
+        }
+    } catch { Write-Warning "settings.json unreadable; assuming cleanupPeriodDays=30." }
+}
+
 $payload = [pscustomobject]@{
-    generated     = (Get-Date).ToUniversalTime().ToString('o')
-    machine       = $env:COMPUTERNAME
-    claudeDir     = $ClaudeDir
-    launchEnabled = $launchEnabled
-    sessions      = $sessions
+    generated         = (Get-Date).ToUniversalTime().ToString('o')
+    machine           = $env:COMPUTERNAME
+    claudeDir         = $ClaudeDir
+    launchEnabled     = $launchEnabled
+    cleanupPeriodDays = $cleanupPeriodDays
+    sessions          = $sessions
 }
 
 $json = $payload | ConvertTo-Json -Depth 6 -Compress

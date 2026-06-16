@@ -37,6 +37,18 @@ explicitly by setting `"terminal": "wt"` in config.json (requires the `wt`
 app execution alias to be enabled: Settings > Apps > Advanced app settings >
 App execution aliases).
 
+**Reload is not reindex.** The page is a static snapshot: it loads `data.js`
+once and only displays it. A browser reload (or reopening the page) just
+re-reads whatever `data.js` already holds — it never scans transcripts. Only
+`Update-SessionIndex.ps1` rewrites `data.js`, via the desktop icon, the
+SessionStart hook, a resident Claude, or the **↻ refresh** button. The button
+fires `claudesessions://reindex/now` (a no-data verb — see SECURITY.md), which
+runs the indexer in the hidden handler, then the page reloads. Because a
+file:// page can't observe when that out-of-process handler finishes, the
+reload is a fixed ~3s delay, not a completion signal; if a future, much larger
+transcript set makes indexing exceed that, the reload shows the prior data and
+a second click catches up.
+
 **Protocol permission prompts on file:// are inconsistent.** Chrome/Edge may
 or may not offer "always allow" for file-origin pages. Worst case: one extra
 Enter per launch.

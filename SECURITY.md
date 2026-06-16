@@ -20,10 +20,12 @@ in a directory you already use Claude in.* Annoying, not dangerous.
 What keeps the ceiling there:
 
 1. **Strict shape validation.** The URL must match
-   `claudesessions://(resume|new|continue)/<one-segment>` exactly. Unknown
-   verbs, extra path segments, query strings: rejected.
+   `claudesessions://(resume|new|continue|assist|reindex)/<one-segment>`
+   exactly. Unknown verbs, extra path segments, query strings: rejected.
 2. **Strict argument validation.** `resume` takes only a UUID. `new` and
-   `continue` take only `[A-Za-z0-9._-]{1,200}`.
+   `continue` take only `[A-Za-z0-9._-]{1,200}`. `assist` and `reindex` carry
+   no data at all — their argument must be the literal `start` / `now`, so no
+   webpage can feed them anything.
 3. **The argument is a lookup key, never a value.** It selects a row in
    `data.js`. The working directory and the command line are built
    exclusively from index contents and hardcoded strings. Nothing from the
