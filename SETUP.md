@@ -96,6 +96,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Setup.
 Setup.ps1 writes config.json, registers the protocol (if yes), builds the
 first index, and opens the page. It warns if `claude` isn't on PATH.
 
+The page opens in the user's **default browser**, forced into a fresh window so
+it lands on their **current virtual desktop** (rather than folding into an
+existing window stranded on another desktop). On Chromium browsers (Edge,
+Chrome, Brave, …) that's a tab-less app window; Firefox gets a normal new
+window. This is the `viewerLaunch: "app"` default — no interview question for
+it. To change it, edit `config.json` (`app` | `window` | `default`) or re-run
+with `-ViewerLaunch <choice>`. `default` restores plain OS hand-off (no forced
+window).
+
 ## 5. Verify and hand off
 
 - Confirm the index line it printed ("Indexed N sessions across M projects").

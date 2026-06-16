@@ -20,7 +20,9 @@ one-click resume.](sessions-demo.png)
   transcript on your computer.
 - **One-Click Launch:** A desktop / Start-menu icon relaunches the dashboard
   freshly re-indexed and provides an alternative to the tired launching a terminal
-  and using the terminal to navigate to  project folders.
+  and using the terminal to navigate to  project folders. It opens in your
+  default browser in its own window on your current virtual desktop — no hunting
+  across desktops for a buried tab.
 - **100% Local:** Nothing leaves your machine.
 
 Claude itself does the install — see below.

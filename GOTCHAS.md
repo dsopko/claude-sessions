@@ -49,6 +49,25 @@ reload is a fixed ~3s delay, not a completion signal; if a future, much larger
 transcript set makes indexing exceed that, the reload shows the prior data and
 a second click catches up.
 
+**The viewer opens in a forced new window to stay on the current virtual
+desktop.** Plain `Start-Process page.html` hands the URL to the default browser,
+which folds it into an *existing* window — often stranded on another of the
+user's virtual desktops, so the page seems not to open. A freshly created window
+is born on the active desktop, so `Open-Viewer` launches the default browser
+with a new-window flag: Chromium (`msedge`/`chrome`/`brave`/`vivaldi`/`opera`)
+gets `--app=<url>` (or `--new-window` for `viewerLaunch: "window"`), Firefox gets
+`-new-window` (no app mode exists in its CLI), and anything unrecognized falls
+back to `Start-Process` (today's behavior). The default browser is resolved at
+runtime from the `https`/`http` UserChoice ProgId, so it follows the user's
+choice even if they switch later. `viewerLaunch: "default"` opts out entirely.
+Note: `--app` is Chromium-wide, **not** Chrome-specific.
+
+**Switching the launch browser/window re-triggers the protocol prompt once.**
+Opening in a new context (e.g. moving from a normal tab to a Chromium app
+window) means the browser hasn't been told to trust `claudesessions://` there,
+so the "always allow file:// …" prompt reappears. It's per-browser, one-time —
+tick the box, accept once, done.
+
 **Protocol permission prompts on file:// are inconsistent.** Chrome/Edge may
 or may not offer "always allow" for file-origin pages. Worst case: one extra
 Enter per launch.

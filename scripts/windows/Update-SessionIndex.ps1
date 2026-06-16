@@ -1,7 +1,9 @@
 <#
 .SYNOPSIS
     Scans ~/.claude/projects, extracts per-session metadata, writes data.js,
-    and opens sessions.html in the default browser.
+    and opens sessions.html in the user's default browser, forcing a fresh
+    window (app window on Chromium) so it lands on the current virtual desktop.
+    Launch style is read from config.json "viewerLaunch" (app|window|default).
 
 .DESCRIPTION
     Head/tail-only reads: never parses full transcripts, so cost is
@@ -218,7 +220,87 @@ Set-Content -Path $dataPath -Value "window.SESSION_DATA = $json;" -Encoding UTF8
 Write-Host ("Indexed {0} sessions across {1} projects -> {2}" -f `
     $sessions.Count, ($sessions.projectDir | Select-Object -Unique).Count, $dataPath)
 
+function Resolve-DefaultBrowser {
+    # Full path to the user's default browser exe, or $null. Reads the https (then
+    # http) UserChoice ProgId and follows it to its shell\open\command, then peels
+    # the exe out of the command string.
+    $progId = $null
+    foreach ($scheme in 'https', 'http') {
+        try {
+            $progId = (Get-ItemProperty "HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\$scheme\UserChoice" -ErrorAction Stop).ProgId
+            if ($progId) { break }
+        } catch { }
+    }
+    if (-not $progId) { return $null }
+    $cmd = $null
+    foreach ($hive in 'Registry::HKEY_CLASSES_ROOT', 'HKCU:\Software\Classes', 'HKLM:\SOFTWARE\Classes') {
+        try {
+            $cmd = (Get-ItemProperty -LiteralPath "$hive\$progId\shell\open\command" -ErrorAction Stop).'(default)'
+            if ($cmd) { break }
+        } catch { }
+    }
+    if (-not $cmd) { return $null }
+    if ($cmd -match '^\s*"([^"]+)"') { return $Matches[1] }   # quoted path
+    if ($cmd -match '^\s*(\S+)')     { return $Matches[1] }   # bare token
+    return $null
+}
+
+function Get-BrowserKind {
+    # Classify a browser exe so we know which new-window flag it understands.
+    param([string]$Exe)
+    if (-not $Exe) { return 'other' }
+    switch -Regex ([System.IO.Path]::GetFileName($Exe).ToLowerInvariant()) {
+        '^(msedge|chrome|brave|vivaldi|opera)' { 'chromium'; break }   # all Chromium: --app / --new-window
+        'firefox'                              { 'firefox';  break }   # new-window only, no app mode
+        default                                { 'other' }
+    }
+}
+
+function Open-Viewer {
+    # Open the viewer in the user's DEFAULT browser, forcing a fresh window so it
+    # lands on the *current* virtual desktop instead of being folded into an
+    # existing window stranded on another desktop. Mode (from config.json):
+    #   app     -> Chromium app window (--app); Firefox degrades to a new window
+    #   window  -> normal new window  (--new-window / -new-window)
+    #   default -> hand off to the OS (Start-Process); no forced window
+    # Any unknown browser or failure falls back to Start-Process (today's behavior).
+    param(
+        [Parameter(Mandatory)][string]$Page,
+        [ValidateSet('app', 'window', 'default')][string]$Mode = 'app'
+    )
+    if ($Mode -eq 'default') { Start-Process $Page; return }
+
+    $url  = ([Uri]((Resolve-Path -LiteralPath $Page).Path)).AbsoluteUri   # file:///C:/.../sessions.html
+    $exe  = Resolve-DefaultBrowser
+    $kind = Get-BrowserKind $exe
+
+    $launchArgs = $null
+    if ($exe -and (Test-Path -LiteralPath $exe)) {
+        if ($kind -eq 'chromium') {
+            $launchArgs = if ($Mode -eq 'app') { @("--app=$url") } else { @('--new-window', $url) }
+        } elseif ($kind -eq 'firefox') {
+            $launchArgs = @('-new-window', $url)
+        }
+    }
+
+    if ($launchArgs) {
+        try { Start-Process -FilePath $exe -ArgumentList $launchArgs; return }
+        catch { Write-Warning "Could not launch $exe ($($_.Exception.Message)); using the default browser." }
+    }
+    Start-Process $Page   # unknown browser / detection failed / launch failed
+}
+
 if (-not $NoLaunch) {
     $page = Join-Path $OutputDir 'sessions.html'
-    if (Test-Path $page) { Start-Process $page } else { Write-Warning "Viewer not found: $page" }
+    if (Test-Path $page) {
+        $mode = 'app'
+        $cfgPath = Join-Path $OutputDir 'config.json'
+        if (Test-Path $cfgPath) {
+            try {
+                $vl = (Get-Content -Path $cfgPath -Raw | ConvertFrom-Json).viewerLaunch
+                if ($vl -in @('app', 'window', 'default')) { $mode = $vl }
+            } catch { }
+        }
+        Open-Viewer -Page $page -Mode $mode
+    } else { Write-Warning "Viewer not found: $page" }
 }

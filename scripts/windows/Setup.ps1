@@ -21,7 +21,9 @@ param(
     [ValidateSet('yes', 'no')]
     [string]$Protocol = 'yes',
     [ValidateSet('page', 'claude', 'no', 'yes')]
-    [string]$Shortcut = 'page'
+    [string]$Shortcut = 'page',
+    [ValidateSet('app', 'window', 'default')]
+    [string]$ViewerLaunch = 'app'
 )
 if ($Shortcut -eq 'yes') { $Shortcut = 'page' }   # back-compat
 
@@ -65,10 +67,15 @@ $config = [pscustomobject]@{
     platform           = 'windows'
     terminal           = $Terminal
     protocolRegistered = ($Protocol -eq 'yes')
+    # How the viewer opens: app = Chromium app window (Firefox degrades to a new
+    # window), window = normal new window, default = OS default (no forced
+    # window). Forcing a fresh window keeps the page on the current virtual
+    # desktop instead of folding into a window on another desktop.
+    viewerLaunch       = $ViewerLaunch
     configuredAt       = (Get-Date).ToUniversalTime().ToString('o')
 }
 $config | ConvertTo-Json | Set-Content -Path (Join-Path $root 'config.json') -Encoding UTF8
-Write-Host "config.json written: terminal=$Terminal, protocol=$Protocol"
+Write-Host "config.json written: terminal=$Terminal, protocol=$Protocol, viewerLaunch=$ViewerLaunch"
 
 # --- register protocol ----------------------------------------------------------
 if ($Protocol -eq 'yes') {

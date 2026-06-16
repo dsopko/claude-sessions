@@ -70,7 +70,8 @@ resume command when a result looks like something they want to reopen.
 - `data.js` — generated index. Never edit by hand; regenerate.
 - `scripts/windows/` — utilities + Setup.ps1 + protocol handler. PowerShell 5.1+.
 - `scripts/posix/` — Linux/macOS ports, help wanted.
-- `config.json` — written by Setup.ps1: platform, terminal choice, protocol state.
+- `config.json` — written by Setup.ps1: platform, terminal choice, protocol
+  state, `viewerLaunch` (app|window|default — how the page opens; see GOTCHAS).
 - `SECURITY.md` — threat model; read before touching launch code.
 
 ## Index schema (what data.js contains per session)
