@@ -89,6 +89,16 @@ see `scripts/posix/README.md`.
 - Group headers: **+ new** and **continue** for that project. Buttons appear
   only when the protocol is registered (config.json drives it).
 
+## How it works
+
+The viewer renders a single generated file, `data.js`, distilled from the
+session transcripts Claude Code writes under `~/.claude/projects`. The indexer
+reads only a bounded **head** (first ~120 lines / 256 KB) and **tail** (last
+64 KB) of each transcript — never the middle — so a full rebuild stays near
+instant and costs the same whether a session is 50 KB or 50 MB. See
+**STORAGE.md** for the on-disk layout, a diagram, and the field-by-field
+extraction.
+
 ## Uninstall
 
 ```powershell
