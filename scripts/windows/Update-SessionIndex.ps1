@@ -120,36 +120,50 @@ foreach ($entry in $files) {
         $head = Read-HeadLines -Path $f.FullName
         if ($head.Count -eq 0) { continue }
 
-        $meta        = $null   # first line carrying sessionId/cwd/etc.
+        $meta        = $null   # first line carrying sessionId
         $firstPrompt = $null
         $firstTs     = $null
+        $gitBranch   = $null
+        $version     = $null
+        $cwd         = $null
         $customTitle = $null
         $isFork      = $false
 
+        # Take the first non-null value of each field across the (bounded) head.
+        # The sessionId-bearing "meta" line frequently lacks timestamp / gitBranch
+        # / cwd / version, because summary, file-history-snapshot, and queue lines
+        # lead the file in current Claude Code transcripts. Reading those off the
+        # meta line alone left 'started', 'branch', and 'version' blank for most
+        # sessions, so each is captured independently of meta detection.
         foreach ($raw in $head) {
             $o = ConvertFrom-JsonSafe $raw
             if ($null -eq $o) { continue }
-            # Start time = first timestamp anywhere in the head. The sessionId-
-            # bearing meta line frequently has no timestamp (summary / snapshot /
-            # queue lines lead the file), so binding firstTs to it left 'started'
-            # and 'dur' blank for most sessions. Capture it independently.
-            if ($null -eq $firstTs -and $o.timestamp) { $firstTs = $o.timestamp }
-            if ($null -eq $meta -and $o.sessionId) { $meta = $o }
+            if ($null -eq $meta      -and $o.sessionId) { $meta = $o }
+            if ($null -eq $firstTs   -and $o.timestamp) { $firstTs = $o.timestamp }
+            if ($null -eq $gitBranch -and $o.gitBranch) { $gitBranch = $o.gitBranch }
+            if ($null -eq $version   -and $o.version)   { $version = $o.version }
+            if ($null -eq $cwd       -and $o.cwd)       { $cwd = $o.cwd }
             if ($o.type -eq 'custom-title' -and $o.title) { $customTitle = $o.title }
             if ($o.type -eq 'summary') { $isFork = $true }   # summary pointer at head => resumed/branched lineage
             if ($null -eq $firstPrompt -and (Test-RealUserPrompt $o)) {
                 $firstPrompt = $o.message.content
             }
-            if ($meta -and $firstPrompt) { break }
         }
 
         # Last activity: prefer last parseable timestamp in the tail; fall back to mtime.
+        # Branch: take the LAST gitBranch in the tail so the column shows where the
+        # session ended (e.g. work that began on a feature branch and landed on
+        # main), not where it started. gitBranch rides on every event line, so the
+        # tail carries it; fall back to the head value if the tail somehow lacks it.
         $lastTs = $null
+        $lastBranch = $null
         foreach ($raw in (Read-TailLines -Path $f.FullName)) {
             $o = ConvertFrom-JsonSafe $raw
             if ($o -and $o.timestamp) { $lastTs = $o.timestamp }
+            if ($o -and $o.gitBranch) { $lastBranch = $o.gitBranch }
         }
         if (-not $lastTs) { $lastTs = $f.LastWriteTimeUtc.ToString('o') }
+        if ($lastBranch) { $gitBranch = $lastBranch }   # end-of-session branch wins
 
         $durationMin = $null
         if ($firstTs -and $lastTs) {
@@ -163,10 +177,10 @@ foreach ($entry in $files) {
             sessionId    = if ($meta) { $meta.sessionId } else { [System.IO.Path]::GetFileNameWithoutExtension($f.Name) }
             title        = $customTitle
             firstPrompt  = if ($firstPrompt) { $firstPrompt.Substring(0, [Math]::Min(300, $firstPrompt.Length)) } else { $null }
-            cwd          = if ($meta -and $meta.cwd) { $meta.cwd } else { Get-ProjectLabel $entry.ProjDirName }
+            cwd          = if ($cwd) { $cwd } else { Get-ProjectLabel $entry.ProjDirName }
             projectDir   = $entry.ProjDirName
-            gitBranch    = if ($meta) { $meta.gitBranch } else { $null }
-            version      = if ($meta) { $meta.version } else { $null }
+            gitBranch    = $gitBranch
+            version      = $version
             startTime    = $firstTs
             lastActivity = $lastTs
             durationMin  = $durationMin
