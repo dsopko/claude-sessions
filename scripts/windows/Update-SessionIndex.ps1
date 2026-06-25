@@ -129,10 +129,12 @@ foreach ($entry in $files) {
         foreach ($raw in $head) {
             $o = ConvertFrom-JsonSafe $raw
             if ($null -eq $o) { continue }
-            if ($null -eq $meta -and $o.sessionId) {
-                $meta = $o
-                $firstTs = $o.timestamp
-            }
+            # Start time = first timestamp anywhere in the head. The sessionId-
+            # bearing meta line frequently has no timestamp (summary / snapshot /
+            # queue lines lead the file), so binding firstTs to it left 'started'
+            # and 'dur' blank for most sessions. Capture it independently.
+            if ($null -eq $firstTs -and $o.timestamp) { $firstTs = $o.timestamp }
+            if ($null -eq $meta -and $o.sessionId) { $meta = $o }
             if ($o.type -eq 'custom-title' -and $o.title) { $customTitle = $o.title }
             if ($o.type -eq 'summary') { $isFork = $true }   # summary pointer at head => resumed/branched lineage
             if ($null -eq $firstPrompt -and (Test-RealUserPrompt $o)) {
