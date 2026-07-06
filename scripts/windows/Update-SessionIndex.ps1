@@ -104,6 +104,16 @@ function Get-ProjectLabel {
     return ($DirName -replace '^-', '/' -replace '-', '/')
 }
 
+# Leading sentence of the fixed kickoff prompt that Launch-Handler.ps1 injects
+# for the "search with claude" (assist) verb. That prompt lands as the session's
+# FIRST user message, so without special-casing it every assist session shows
+# the same boilerplate in the list. When we see it we skip it, take the next
+# real user prompt as the query, and synthesize a friendly named-session title
+# from it (see the emit below). Match a stable prefix, not the whole string, so
+# wording tweaks to the tail of the prompt don't break detection. Keep this in
+# sync with the prompt in Launch-Handler.ps1 (the 'assist' switch arm).
+$AssistKickoffPrefix = 'The user clicked Search with Claude on the sessions page'
+
 # --- scan --------------------------------------------------------------------
 
 $sessions = [System.Collections.Generic.List[object]]::new()
@@ -127,6 +137,7 @@ foreach ($entry in $files) {
         $version     = $null
         $cwd         = $null
         $customTitle = $null
+        $assistKickoff = $false   # first real prompt was the injected "search with claude" kickoff
         $isFork      = $false
 
         # Take the first non-null value of each field across the (bounded) head.
@@ -146,7 +157,15 @@ foreach ($entry in $files) {
             if ($o.type -eq 'custom-title' -and $o.title) { $customTitle = $o.title }
             if ($o.type -eq 'summary') { $isFork = $true }   # summary pointer at head => resumed/branched lineage
             if ($null -eq $firstPrompt -and (Test-RealUserPrompt $o)) {
-                $firstPrompt = $o.message.content
+                $content = $o.message.content
+                if (-not $assistKickoff -and $content -like "$AssistKickoffPrefix*") {
+                    # Injected "search with claude" kickoff: skip it so firstPrompt
+                    # (and the synthesized title) reflect the user's real query,
+                    # captured from the next real prompt on a later pass of this loop.
+                    $assistKickoff = $true
+                } else {
+                    $firstPrompt = $content
+                }
             }
         }
 
@@ -173,9 +192,26 @@ foreach ($entry in $files) {
             } catch { }
         }
 
+        # For "search with claude" sessions, synthesize a named-session title from
+        # the user's first real query so the row reads like a renamed session
+        # instead of repeating the injected kickoff. A genuine user rename
+        # (custom-title) always wins. Index-only: this label lives in data.js, not
+        # in the transcript, so it shows in this app, not in Claude's /resume list.
+        $displayTitle = $customTitle
+        if (-not $displayTitle -and $assistKickoff) {
+            if ($firstPrompt) {
+                $q = $firstPrompt.Trim() -replace '\s+', ' '
+                if ($q.Length -gt 80) { $q = $q.Substring(0, 80).TrimEnd() + '...' }
+                $displayTitle = "Searching Claude sessions - $q"
+            } else {
+                # Assist session opened but no query typed yet.
+                $displayTitle = 'Searching Claude sessions'
+            }
+        }
+
         $sessions.Add([pscustomobject]@{
             sessionId    = if ($meta) { $meta.sessionId } else { [System.IO.Path]::GetFileNameWithoutExtension($f.Name) }
-            title        = $customTitle
+            title        = $displayTitle
             firstPrompt  = if ($firstPrompt) { $firstPrompt.Substring(0, [Math]::Min(300, $firstPrompt.Length)) } else { $null }
             cwd          = if ($cwd) { $cwd } else { Get-ProjectLabel $entry.ProjDirName }
             projectDir   = $entry.ProjDirName

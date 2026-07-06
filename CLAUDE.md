@@ -76,9 +76,12 @@ resume command when a result looks like something they want to reopen.
 
 ## Index schema (what data.js contains per session)
 
-`sessionId, title (custom-title if user named it), firstPrompt (truncated 300),
-cwd, projectDir, gitBranch, version, startTime, lastActivity, durationMin,
-sizeBytes, isFork (summary-line lineage detected), filePath`
+`sessionId, title (custom-title if user named it; else a synthesized
+"Searching Claude sessions - <query>" for search-with-claude sessions, whose
+injected kickoff prompt is skipped so firstPrompt/title reflect the real query),
+firstPrompt (truncated 300), cwd, projectDir, gitBranch, version, startTime,
+lastActivity, durationMin, sizeBytes, isFork (summary-line lineage detected),
+filePath`
 
 Top-level (alongside `sessions`): `generated, machine, claudeDir, launchEnabled,
 cleanupPeriodDays`. The last is read from the user's `settings.json` (default 30)
