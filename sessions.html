@@ -245,6 +245,20 @@
   .copy-btn:hover { color: var(--amber); border-color: var(--amber-dim); }
   .copy-btn:focus-visible { outline: 2px solid var(--amber-dim); }
   .resume-cmd { color: var(--amber) !important; }
+  .delete-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--dim);
+    font-family: var(--sans);
+    font-size: 12px;
+    line-height: 1;
+    padding: 3px 7px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .delete-btn:hover { color: var(--red); border-color: var(--red); }
+  .delete-btn:focus-visible { outline: 2px solid var(--red); }
 
   .empty-state {
     text-align: center;
@@ -441,7 +455,9 @@
           <dt>resume</dt>
           <dd><span class="resume-cmd">${esc(resume)}</span>
               ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}">launch</a>` : ''}
-              <button class="copy-btn" data-copy="${esc(resume)}">copy</button></dd>
+              <button class="copy-btn" data-copy="${esc(resume)}">copy</button>
+              ${CAN_LAUNCH ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
+                      title="delete this session transcript" aria-label="delete this session transcript">&#128465;</button>` : ''}</dd>
           <dt>session id</dt>
           <dd>${esc(s.sessionId)}
               <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button></dd>
@@ -565,6 +581,17 @@
   $list.addEventListener('click', e => {
     const copy = e.target.closest('.copy-btn');
     if (copy) { copyText(copy.dataset.copy, copy); e.stopPropagation(); return; }
+    const del = e.target.closest('.delete-btn');
+    if (del) {
+      e.stopPropagation();
+      // The handler shows a native Yes/No confirm before anything is removed —
+      // that dialog, not this page, is the actual safeguard (see SECURITY.md).
+      // Fire the delete verb, then reload once the reindex has had time to run.
+      del.disabled = true; del.style.opacity = '0.5';
+      location.href = 'claudesessions://delete/' + encodeURIComponent(del.dataset.delete);
+      setTimeout(() => location.reload(), 3000);
+      return;
+    }
     if (e.target.closest('.detail')) return;
     if (e.target.closest('.gh-act') || e.target.closest('.launch-link')) return; // let the link navigate
     const gh = e.target.closest('.gh-toggle');

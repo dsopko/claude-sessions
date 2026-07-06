@@ -6,6 +6,9 @@
 .DESCRIPTION
     Verbs:
       claudesessions://resume/<session-uuid>     resume that session in its directory
+      claudesessions://delete/<session-uuid>     permanently delete that transcript
+                                                 (native Yes/No confirm; path resolved
+                                                 from the index, never from the URL)
       claudesessions://new/<projectKey>          new claude session in that project
       claudesessions://continue/<projectKey>     claude --continue in that project
       claudesessions://assist/start              claude session in the install folder,
@@ -36,10 +39,29 @@ function Show-Message {
     }
 }
 
+function Confirm-Message {
+    # Modal Yes/No. Returns $true only on an explicit Yes. This is the backstop
+    # for destructive verbs: even a hostile page firing the URL cannot delete
+    # anything without the user clicking Yes here.
+    param([string]$Text, [string]$Title = 'Claude Sessions')
+    try {
+        Add-Type -AssemblyName PresentationFramework
+        $r = [System.Windows.MessageBox]::Show(
+            $Text, $Title,
+            [System.Windows.MessageBoxButton]::YesNo,
+            [System.Windows.MessageBoxImage]::Warning)
+        return ($r -eq [System.Windows.MessageBoxResult]::Yes)
+    } catch {
+        # WScript.Shell.Popup: type 4 = Yes/No; return value 6 = Yes.
+        $r = (New-Object -ComObject WScript.Shell).Popup($Text, 0, $Title, 4)
+        return ($r -eq 6)
+    }
+}
+
 try {
     # --- parse + validate (hostile input) ------------------------------------
     $decoded = [System.Uri]::UnescapeDataString($Url).Trim()
-    if ($decoded -notmatch '^claudesessions://(resume|new|continue|assist|reindex)/([^/?#]+)/?$') {
+    if ($decoded -notmatch '^claudesessions://(resume|delete|new|continue|assist|reindex)/([^/?#]+)/?$') {
         Show-Message "Unrecognized link:`n$Url"
         exit 1
     }
@@ -49,7 +71,7 @@ try {
     $uuidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
     $keyPattern  = '^[A-Za-z0-9._-]{1,200}$'
 
-    if ($verb -eq 'resume' -and $arg -notmatch $uuidPattern) {
+    if ($verb -in @('resume','delete') -and $arg -notmatch $uuidPattern) {
         Show-Message "Invalid session id in link."
         exit 1
     }
@@ -98,6 +120,61 @@ try {
         exit 1
     }
     $data = $Matches[1] | ConvertFrom-Json
+
+    # delete: no terminal, no claude. Resolve the transcript path from the index
+    # (never from the URL), prove it is a .jsonl under this machine's
+    # ~/.claude/projects tree, confirm with the user, delete, then reindex.
+    if ($verb -eq 'delete') {
+        $s = @($data.sessions | Where-Object { $_.sessionId -eq $arg }) | Select-Object -First 1
+        if (-not $s) {
+            Show-Message "Session not in the index. The page may be stale - refresh the index and try again."
+            exit 1
+        }
+        $target = $s.filePath
+        if (-not $target) {
+            Show-Message "That session has no file path in the index."
+            exit 1
+        }
+
+        # Path safety (defense in depth): the file must live under the indexed
+        # claudeDir\projects tree and be a .jsonl transcript. Guards against a
+        # corrupted index pointing the delete somewhere it should never reach.
+        $projectsRoot = Join-Path $data.claudeDir 'projects'
+        try {
+            $fullTarget = [System.IO.Path]::GetFullPath($target)
+            $fullRoot   = [System.IO.Path]::GetFullPath($projectsRoot)
+        } catch {
+            Show-Message "Could not resolve the transcript path."
+            exit 1
+        }
+        $rootPrefix = $fullRoot.TrimEnd('\') + '\'
+        if (-not $fullTarget.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+            -not $fullTarget.EndsWith('.jsonl', [System.StringComparison]::OrdinalIgnoreCase)) {
+            Show-Message "Refusing to delete - path is outside the session store:`n$fullTarget"
+            exit 1
+        }
+        if (-not (Test-Path -LiteralPath $fullTarget)) {
+            Show-Message "Transcript already gone:`n$fullTarget`n`nThe page may be stale - refresh the index."
+            exit 1
+        }
+
+        if (-not (Confirm-Message "Permanently delete this session transcript?`n`n$fullTarget`n`nThis cannot be undone." 'Delete session')) {
+            exit 0
+        }
+
+        try {
+            Remove-Item -LiteralPath $fullTarget -Force -ErrorAction Stop
+        } catch {
+            # A live session holds a lock on its own transcript on Windows.
+            Show-Message "Could not delete the transcript:`n$($_.Exception.Message)`n`nIf this is the session you are currently running, exit it first."
+            exit 1
+        }
+
+        # Refresh the index so the reloaded page no longer shows the row.
+        $updater = Join-Path $scriptDir 'Update-SessionIndex.ps1'
+        if (Test-Path $updater) { & $updater -NoLaunch }
+        exit 0
+    }
 
     # --- resolve from index ----------------------------------------------------
     $cwd = $null

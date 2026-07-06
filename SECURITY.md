@@ -20,18 +20,42 @@ in a directory you already use Claude in.* Annoying, not dangerous.
 What keeps the ceiling there:
 
 1. **Strict shape validation.** The URL must match
-   `claudesessions://(resume|new|continue|assist|reindex)/<one-segment>`
+   `claudesessions://(resume|delete|new|continue|assist|reindex)/<one-segment>`
    exactly. Unknown verbs, extra path segments, query strings: rejected.
-2. **Strict argument validation.** `resume` takes only a UUID. `new` and
-   `continue` take only `[A-Za-z0-9._-]{1,200}`. `assist` and `reindex` carry
-   no data at all — their argument must be the literal `start` / `now`, so no
-   webpage can feed them anything.
+2. **Strict argument validation.** `resume` and `delete` take only a UUID.
+   `new` and `continue` take only `[A-Za-z0-9._-]{1,200}`. `assist` and
+   `reindex` carry no data at all — their argument must be the literal
+   `start` / `now`, so no webpage can feed them anything.
 3. **The argument is a lookup key, never a value.** It selects a row in
-   `data.js`. The working directory and the command line are built
-   exclusively from index contents and hardcoded strings. Nothing from the
-   URL is ever interpolated into a command, passed to a shell, or used as a
-   filesystem path.
+   `data.js`. The working directory, the command line, and (for `delete`) the
+   file path are built exclusively from index contents and hardcoded strings.
+   Nothing from the URL is ever interpolated into a command, passed to a
+   shell, or used as a filesystem path.
 4. **Existence check.** The resolved directory must exist before launch.
+
+## The one destructive verb: `delete`
+
+`delete` is the only verb that changes something on disk, so it carries extra
+guards on top of the four above. It raises the damage ceiling from "an
+unwanted window opens" to "one transcript could be removed," and these are
+what hold it there:
+
+- **Native Yes/No confirmation.** The handler pops a modal Yes/No dialog
+  showing the resolved path before deleting. Nothing is removed without an
+  explicit Yes. This is the real backstop: even a hostile page that fires the
+  URL cannot delete anything silently.
+- **Path resolved from the index, then re-validated.** The UUID selects a row;
+  the file to delete is that row's `filePath`, never anything from the URL.
+  Before deletion the handler asserts the resolved full path sits under this
+  machine's `<claudeDir>\projects\` tree and ends in `.jsonl` — so even a
+  corrupted index cannot aim the delete elsewhere.
+- **No path from the URL, ever.** As with every verb, the URL supplies only a
+  lookup key. A URL can never name a file to delete.
+
+A live session holds a Windows lock on its own transcript, so deleting the
+currently-running session simply fails with a surfaced error rather than
+corrupting anything. `delete` never touches directories, only a single
+validated `.jsonl` file, and reindexes afterward.
 
 ## The failure that must never ship
 
