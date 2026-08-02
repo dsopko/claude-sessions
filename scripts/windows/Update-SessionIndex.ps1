@@ -137,6 +137,7 @@ foreach ($entry in $files) {
         $version     = $null
         $cwd         = $null
         $customTitle = $null
+        $aiTitle     = $null
         $assistKickoff = $false   # first real prompt was the injected "search with claude" kickoff
         $isFork      = $false
 
@@ -154,8 +155,11 @@ foreach ($entry in $files) {
             if ($null -eq $gitBranch -and $o.gitBranch) { $gitBranch = $o.gitBranch }
             if ($null -eq $version   -and $o.version)   { $version = $o.version }
             if ($null -eq $cwd       -and $o.cwd)       { $cwd = $o.cwd }
-            if ($o.type -eq 'custom-title' -and $o.title) { $customTitle = $o.title }
-            if ($o.type -eq 'summary') { $isFork = $true }   # summary pointer at head => resumed/branched lineage
+            # Titles: keep the LAST of each type seen (renames stack; the newest
+            # wins). The tail pass below overrides these — see the note there.
+            if ($o.type -eq 'custom-title' -and $o.customTitle) { $customTitle = $o.customTitle }
+            if ($o.type -eq 'ai-title'     -and $o.aiTitle)     { $aiTitle     = $o.aiTitle }
+            if ($o.forkedFrom) { $isFork = $true }           # branched from another transcript
             if ($null -eq $firstPrompt -and (Test-RealUserPrompt $o)) {
                 $content = $o.message.content
                 if (-not $assistKickoff -and $content -like "$AssistKickoffPrefix*") {
@@ -174,12 +178,23 @@ foreach ($entry in $files) {
         # session ended (e.g. work that began on a feature branch and landed on
         # main), not where it started. gitBranch rides on every event line, so the
         # tail carries it; fall back to the head value if the tail somehow lacks it.
+        #
+        # Titles are re-stamped once per prompt for the life of a session, so the
+        # current value of each always sits within a prompt or two of EOF -- the
+        # tail is the only place that reliably has it. A rename lands wherever it
+        # happened (line 476 of 484 in one measured transcript), far past the head
+        # window. Measured worst case across this machine: custom-title 27 KB from
+        # EOF, ai-title 33 KB, against the 64 KB tail. Head values (above) act as a
+        # fallback for the rare file whose titles all predate the tail window.
         $lastTs = $null
         $lastBranch = $null
         foreach ($raw in (Read-TailLines -Path $f.FullName)) {
             $o = ConvertFrom-JsonSafe $raw
             if ($o -and $o.timestamp) { $lastTs = $o.timestamp }
             if ($o -and $o.gitBranch) { $lastBranch = $o.gitBranch }
+            if ($o -and $o.type -eq 'custom-title' -and $o.customTitle) { $customTitle = $o.customTitle }
+            if ($o -and $o.type -eq 'ai-title'     -and $o.aiTitle)     { $aiTitle     = $o.aiTitle }
+            if ($o -and $o.forkedFrom) { $isFork = $true }
         }
         if (-not $lastTs) { $lastTs = $f.LastWriteTimeUtc.ToString('o') }
         if ($lastBranch) { $gitBranch = $lastBranch }   # end-of-session branch wins
@@ -192,11 +207,18 @@ foreach ($entry in $files) {
             } catch { }
         }
 
-        # For "search with claude" sessions, synthesize a named-session title from
-        # the user's first real query so the row reads like a renamed session
-        # instead of repeating the injected kickoff. A genuine user rename
-        # (custom-title) always wins. Index-only: this label lives in data.js, not
-        # in the transcript, so it shows in this app, not in Claude's /resume list.
+        # Name a row the way Claude Code names the session: the user's rename if
+        # there is one, else Claude's own auto title. Ordering is by SOURCE, never
+        # by file position -- both types keep re-stamping, so the last title line
+        # in a renamed transcript is often the stale ai-title (6 of 17 measured).
+        #
+        #   custom-title  ->  synthesized assist label  ->  ai-title  ->  firstPrompt
+        #
+        # The synthesized label outranks ai-title because a "search with claude"
+        # session's auto title is generated from the injected kickoff boilerplate,
+        # so it describes this app rather than what the user asked. That label is
+        # index-only: it lives in data.js, not in the transcript, so it shows here
+        # and not in Claude's /resume list. firstPrompt is the viewer's fallback.
         $displayTitle = $customTitle
         if (-not $displayTitle -and $assistKickoff) {
             if ($firstPrompt) {
@@ -208,6 +230,7 @@ foreach ($entry in $files) {
                 $displayTitle = 'Searching Claude sessions'
             }
         }
+        if (-not $displayTitle -and $aiTitle) { $displayTitle = $aiTitle }
 
         $sessions.Add([pscustomobject]@{
             sessionId    = if ($meta) { $meta.sessionId } else { [System.IO.Path]::GetFileNameWithoutExtension($f.Name) }

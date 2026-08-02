@@ -76,12 +76,24 @@ resume command when a result looks like something they want to reopen.
 
 ## Index schema (what data.js contains per session)
 
-`sessionId, title (custom-title if user named it; else a synthesized
-"Searching Claude sessions - <query>" for search-with-claude sessions, whose
-injected kickoff prompt is skipped so firstPrompt/title reflect the real query),
-firstPrompt (truncated 300), cwd, projectDir, gitBranch, version, startTime,
-lastActivity, durationMin, sizeBytes, isFork (summary-line lineage detected),
-filePath`
+`sessionId, title, firstPrompt (truncated 300), cwd, projectDir, gitBranch,
+version, startTime, lastActivity, durationMin, sizeBytes, isFork (forkedFrom
+present), filePath`
+
+`title` names a row the way Claude Code names the session, ordered by **source,
+never by file position**:
+
+1. `customTitle` — the user's rename (last one wins; renames stack).
+2. Synthesized `"Searching Claude sessions - <query>"` — search-with-claude
+   sessions only, whose injected kickoff prompt is skipped so firstPrompt/title
+   reflect the real query. Outranks `aiTitle` because their auto title is
+   generated from that boilerplate. Index-only; not in the transcript.
+3. `aiTitle` — Claude Code's own auto name, generated from the opening prompt.
+4. Empty → the viewer falls back to `firstPrompt`.
+
+Both title types re-stamp every prompt, so the last title *line* in a renamed
+transcript is often the stale `aiTitle` — hence ordering by source. See
+STORAGE.md for why both are read from the tail window.
 
 Top-level (alongside `sessions`): `generated, machine, claudeDir, launchEnabled,
 cleanupPeriodDays`. The last is read from the user's `settings.json` (default 30)
