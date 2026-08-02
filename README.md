@@ -75,6 +75,10 @@ see `scripts/posix/README.md`.
 - Sort by project name orders projects A→Z on the full path shown in the
   group header (case-insensitive), with sessions inside each project still
   newest-first. It's the one ascending sort; the rest are descending.
+- **Session names** match what Claude Code calls the session: your rename if you
+  made one, otherwise Claude's own auto-generated title. A session with neither
+  shows its first prompt instead. All three render identically — how a session
+  got its name isn't a visual distinction.
 - Amber left-edge tick = recency (bright under an hour, fading over 30 days).
 - **Expiry warning.** Claude Code deletes a transcript `cleanupPeriodDays`
   after its last activity (default 30). The header states the policy (or

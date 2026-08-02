@@ -188,7 +188,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .prompt .named { color: var(--amber); }
   .prompt .fork-mark { color: var(--teal); font-size: 11px; margin-right: 4px; }
   .prompt.empty { color: var(--faint); font-style: italic; }
   .cell { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -432,8 +431,9 @@
 
   /* ---------- render ---------- */
   function rowHtml(s) {
-    const label = s.title
-      ? `<span class="named">${esc(s.title)}</span>`
+    // Titles and raw prompts render identically — how a session got its name
+    // (user rename, Claude's auto title, or none) is not a visual distinction.
+    const label = s.title ? esc(s.title)
       : s.firstPrompt ? esc(s.firstPrompt) : null;
     const promptCls = label ? 'prompt' : 'prompt empty';
     const fork = s.isFork ? '<span class="fork-mark" title="resumed / branched lineage">&#x2387;</span>' : '';

@@ -76,11 +76,22 @@ Enter per launch.
 shape regex accepts exactly one optional trailing slash.
 
 **JSONL schema is undocumented and drifts.** Line types observed in the wild:
-user, assistant, system, summary, custom-title, file-history-snapshot,
-queue-operation, agent-name, attachment, last-prompt, permission-mode. The
-parser skips unknown types and treats missing fields as null. parentUuid
-chains are known to corrupt (anthropics/claude-code#22526); nothing here
-depends on chain integrity.
+user, assistant, system, summary, custom-title, ai-title, file-history-snapshot,
+file-history-delta, queue-operation, agent-name, attachment, last-prompt, mode,
+permission-mode, bridge-session, pr-link. The parser skips unknown types and
+treats missing fields as null. parentUuid chains are known to corrupt
+(anthropics/claude-code#22526); nothing here depends on chain integrity.
+
+Drift that has already bitten this tool — both failed **silently**, producing a
+plausible-looking index rather than an error:
+
+- `summary` lines, once the fork signal, are extinct (0 of 145 transcripts on a
+  current client). `forkedFrom` replaced them, so the ⑂ marker never rendered.
+- The rename value moved to `customTitle`; a guard testing `$o.title` matched
+  nothing, and every renamed session listed under its raw first prompt.
+
+When a field mysteriously goes blank or a flag never fires after a Claude Code
+upgrade, assume the key was renamed before assuming the logic is wrong.
 
 **First line of a session file isn't always the user prompt** — hooks,
 summaries, and meta lines can precede it. The indexer scans forward to the

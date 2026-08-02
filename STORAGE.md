@@ -59,7 +59,7 @@ per session and ignores everything between them:
 │  HEAD   read first ≤120 lines OR ≤256 KB, whichever comes first
 │  ┌─────────────────────────────────────────────────────────
 │  │ {"type":"file-history-snapshot", …}        ← leads file; no timestamp/branch
-│  │ {"type":"summary", …}                       ← if present ⇒ resumed / fork
+│  │ {"type":"ai-title","aiTitle":"Fix pricing…"} ← Claude's auto name (median L9)
 │  │ {"type":"user","sessionId":"358b…",          ← first line WITH git context:
 │  │    "timestamp":"2026-…","gitBranch":"master",   startTime, cwd, version
 │  │    "cwd":"C:\\Projects\\penncustprod","version":"1.2.47",  (branch ← tail)
@@ -76,6 +76,8 @@ per session and ignores everything between them:
 │  │ …                                           (split on newlines)
 │  │ {"type":"assistant","timestamp":"2026-…",    ← last timestamp ⇒ lastActivity
 │  │    "gitBranch":"main"}                          last gitBranch ⇒ branch (end)
+│  │ {"type":"custom-title","customTitle":"…"}    ← the user's rename ⇒ title
+│  │ {"type":"ai-title","aiTitle":"Fix pricing…"} ← restamped here too
 │  └─────────────────────────────────────────────────────────
 └──────────────────────────────────────────────────────────── EOF
 ```
@@ -84,8 +86,8 @@ What each window produces (see `Update-SessionIndex.ps1`):
 
 | Source | Fields |
 |---|---|
-| **Head** (`Read-HeadLines`, ≤120 lines / 256 KB) | `startTime`, `cwd`, `version`, `firstPrompt`, `title`, `isFork`, `sessionId` |
-| **Tail** (`Read-TailLines`, last 64 KB) | `lastActivity` (last timestamp; falls back to file mtime), `gitBranch` (last value — the branch the session **ended** on; falls back to the head value) |
+| **Head** (`Read-HeadLines`, ≤120 lines / 256 KB) | `startTime`, `cwd`, `version`, `firstPrompt`, `sessionId` (plus fallback copies of `title` / `isFork`) |
+| **Tail** (`Read-TailLines`, last 64 KB) | `lastActivity` (last timestamp; falls back to file mtime), `gitBranch` (last value — the branch the session **ended** on; falls back to the head value), `title` (last `customTitle`, else last `aiTitle`), `isFork` (`forkedFrom`) |
 | **Filesystem** (no content read) | `sizeBytes` (file length), `filePath`, `projectDir` (folder name) |
 | **Derived** | `durationMin = lastActivity − startTime` |
 
@@ -102,6 +104,14 @@ Two mechanics worth knowing:
 - **Tail seek lands mid-line.** Jumping to `EOF − 64 KB` almost always lands in
   the middle of a line, so the first fragment read is garbage — the reader drops
   it and parses only the complete lines after it.
+- **Titles come from the tail, and last-wins by *type*.** Claude Code re-stamps
+  `ai-title` and `custom-title` once per prompt for the life of a session, so the
+  current value of each is always within a prompt or two of EOF (measured worst
+  case on a real machine: 27 KB and 33 KB back, against the 64 KB window). A
+  rename lands wherever it happened — line 476 of 484 in one transcript — which
+  is why the head can't see it. Both types keep stamping *after* a rename, so the
+  physically-last title line is often the stale `ai-title`; order by source
+  (`customTitle` → `aiTitle`), then take the last of that type.
 
 ## Why bother
 
