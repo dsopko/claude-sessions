@@ -72,6 +72,9 @@ see `scripts/posix/README.md`.
   When grouped, projects are ordered by `MAX(sort key)` so the chosen sort
   drives the group order too, and sessions within a project follow the same
   key — grouping never breaks the sort.
+- Sort by project name orders projects A→Z on the full path shown in the
+  group header (case-insensitive), with sessions inside each project still
+  newest-first. It's the one ascending sort; the rest are descending.
 - Amber left-edge tick = recency (bright under an hour, fading over 30 days).
 - **Expiry warning.** Claude Code deletes a transcript `cleanupPeriodDays`
   after its last activity (default 30). The header states the policy (or
