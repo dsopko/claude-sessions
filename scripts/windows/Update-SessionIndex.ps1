@@ -140,6 +140,7 @@ foreach ($entry in $files) {
         $aiTitle     = $null
         $assistKickoff = $false   # first real prompt was the injected "search with claude" kickoff
         $isFork      = $false
+        $permissionMode = $null
 
         # Take the first non-null value of each field across the (bounded) head.
         # The sessionId-bearing "meta" line frequently lacks timestamp / gitBranch
@@ -160,6 +161,9 @@ foreach ($entry in $files) {
             if ($o.type -eq 'custom-title' -and $o.customTitle) { $customTitle = $o.customTitle }
             if ($o.type -eq 'ai-title'     -and $o.aiTitle)     { $aiTitle     = $o.aiTitle }
             if ($o.forkedFrom) { $isFork = $true }           # branched from another transcript
+            # Permission mode: last value in the head, as a fallback for the rare
+            # transcript whose tail window holds no record carrying the field.
+            if ($o.permissionMode) { $permissionMode = $o.permissionMode }
             if ($null -eq $firstPrompt -and (Test-RealUserPrompt $o)) {
                 $content = $o.message.content
                 if (-not $assistKickoff -and $content -like "$AssistKickoffPrefix*") {
@@ -186,8 +190,21 @@ foreach ($entry in $files) {
         # window. Measured worst case across this machine: custom-title 27 KB from
         # EOF, ai-title 33 KB, against the 64 KB tail. Head values (above) act as a
         # fallback for the rare file whose titles all predate the tail window.
+        #
+        # permissionMode rides on TWO carriers -- 'user' records (stamped on prompt
+        # submission) and dedicated 'permission-mode' records (turn/checkpoint
+        # boundaries, and on change). Take the last value from EITHER, which is the
+        # mode the session was in when it ended. Deliberately not "the last prompt's
+        # value": across a 164-session corpus that variant disagreed 23 times -- 17
+        # sessions whose final prompt-shaped record is machinery that carries no mode
+        # (slash command, command output, interrupt marker), and 6 that toggled mode
+        # after their last prompt. One of those 6 sat at bypassPermissions on its last
+        # prompt but exited in acceptEdits, i.e. the prompt-only rule errs toward MORE
+        # permissive. Not requiring a prompt is both safer and cheaper -- permission-mode
+        # records are denser near EOF than prompts are.
         $lastTs = $null
         $lastBranch = $null
+        $tailPermissionMode = $null
         foreach ($raw in (Read-TailLines -Path $f.FullName)) {
             $o = ConvertFrom-JsonSafe $raw
             if ($o -and $o.timestamp) { $lastTs = $o.timestamp }
@@ -195,9 +212,23 @@ foreach ($entry in $files) {
             if ($o -and $o.type -eq 'custom-title' -and $o.customTitle) { $customTitle = $o.customTitle }
             if ($o -and $o.type -eq 'ai-title'     -and $o.aiTitle)     { $aiTitle     = $o.aiTitle }
             if ($o -and $o.forkedFrom) { $isFork = $true }
+            if ($o -and $o.permissionMode) { $tailPermissionMode = $o.permissionMode }
         }
+        # A long session can end with 64 KB of unbroken tool traffic, leaving no
+        # mode carrier in the default window (3 of 164 measured; the two worst were
+        # 4.6 MB and 12.9 MB transcripts). Widen once to 1 MB rather than falling
+        # straight back to the head value -- the head holds the mode the session
+        # LAUNCHED in, which is not what this field means. 1 MB resolved all three.
+        if (-not $tailPermissionMode) {
+            foreach ($raw in (Read-TailLines -Path $f.FullName -TailBytes 1048576)) {
+                $o = ConvertFrom-JsonSafe $raw
+                if ($o -and $o.permissionMode) { $tailPermissionMode = $o.permissionMode }
+            }
+        }
+
         if (-not $lastTs) { $lastTs = $f.LastWriteTimeUtc.ToString('o') }
         if ($lastBranch) { $gitBranch = $lastBranch }   # end-of-session branch wins
+        if ($tailPermissionMode) { $permissionMode = $tailPermissionMode }   # end-of-session mode wins
 
         $durationMin = $null
         if ($firstTs -and $lastTs) {
@@ -245,6 +276,7 @@ foreach ($entry in $files) {
             durationMin  = $durationMin
             sizeBytes    = $f.Length
             isFork       = $isFork
+            permissionMode = $permissionMode
             filePath     = $f.FullName
         })
     } catch {

@@ -57,6 +57,26 @@ currently-running session simply fails with a surfaced error rather than
 corrupting anything. `delete` never touches directories, only a single
 validated `.jsonl` file, and reindexes afterward.
 
+## Why `launch` never carries permission flags
+
+The index records the permission mode each session ended in, and the viewer puts
+the matching flag (`--permission-mode acceptEdits`, `--dangerously-skip-permissions`,
+…) into the **copyable text** of the resume command. The `launch` button does not
+get that flag, and must not.
+
+The difference is who pulls the trigger. Copyable text is inert until a human
+pastes it into their own terminal. `claudesessions://resume/<uuid>` is fireable by
+any page in the browser. Wiring the flag into the handler would let a hostile page
+turn one click-through on a protocol prompt into *an agent starting with all
+permission checks bypassed* — raising the damage ceiling from "an unwanted Claude
+window opens" to "an unwanted Claude window opens that won't ask before acting."
+The URL still supplies only a lookup key, so this is not the RCE hole below, but
+the ceiling is what this document exists to defend.
+
+That the permission mode comes from the index rather than the URL does not make it
+safe to act on. Index-sourced data is trustworthy as an *identifier*; it is not
+authority to escalate what a link is allowed to start.
+
 ## The failure that must never ship
 
 A handler that accepts a *path* or *command text* from the URL is a

@@ -31,7 +31,7 @@ if ($match.Count -gt 1) {
 $file = $match[0]
 
 $meta = $null; $firstPrompt = $null; $firstTs = $null; $lastTs = $null
-$customTitle = $null
+$customTitle = $null; $permissionMode = $null
 $counts = @{}
 $userPrompts = [System.Collections.Generic.List[object]]::new()
 
@@ -48,6 +48,9 @@ try {
         if ($null -eq $meta -and $o.sessionId) { $meta = $o; $firstTs = $o.timestamp }
         if ($o.timestamp) { $lastTs = $o.timestamp }
         if ($t -eq 'custom-title' -and $o.title) { $customTitle = $o.title }
+        # Last value wins: the mode the session was in when it ended. Carried by
+        # both 'user' and 'permission-mode' records -- don't filter by type.
+        if ($o.permissionMode) { $permissionMode = [string]$o.permissionMode }
 
         $c = $o.message.content
         if ($t -eq 'user' -and $o.isMeta -ne $true -and $c -is [string] -and
@@ -66,6 +69,18 @@ if ($firstTs -and $lastTs) {
     try { $durationMin = [Math]::Round(([datetime]$lastTs - [datetime]$firstTs).TotalMinutes, 1) } catch { }
 }
 
+# Keep in sync with Get-ResumeCommand.ps1 (ConvertTo-PermissionFlag), which owns
+# the canonical mapping, and with permFlag in sessions.html.
+$permissionFlag = switch ($permissionMode) {
+    'default'           { '' }
+    'acceptEdits'       { '--permission-mode acceptEdits' }
+    'auto'              { '--permission-mode auto' }
+    'plan'              { '--permission-mode plan' }
+    'bypassPermissions' { '--dangerously-skip-permissions' }
+    $null               { '' }
+    default             { "--permission-mode $permissionMode" }
+}
+
 [pscustomobject]@{
     sessionId     = $file.BaseName
     title         = $customTitle
@@ -81,5 +96,6 @@ if ($firstTs -and $lastTs) {
     userPromptCount = $userPrompts.Count
     firstPrompt   = $firstPrompt
     lastPrompts   = @($userPrompts | Select-Object -Last $LastN)
-    resumeCommand = "claude --resume $($file.BaseName)"
+    permissionMode = $permissionMode
+    resumeCommand = ("claude --resume $($file.BaseName) " + $permissionFlag).TrimEnd()
 } | ConvertTo-Json -Depth 5

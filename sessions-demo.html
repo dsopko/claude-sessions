@@ -188,7 +188,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .prompt .named { color: var(--amber); }
   .prompt .fork-mark { color: var(--teal); font-size: 11px; margin-right: 4px; }
   .prompt.empty { color: var(--faint); font-style: italic; }
   .cell { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -245,6 +244,20 @@
   .copy-btn:hover { color: var(--amber); border-color: var(--amber-dim); }
   .copy-btn:focus-visible { outline: 2px solid var(--amber-dim); }
   .resume-cmd { color: var(--amber) !important; }
+  .delete-btn {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--dim);
+    font-family: var(--sans);
+    font-size: 12px;
+    line-height: 1;
+    padding: 3px 7px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .delete-btn:hover { color: var(--red); border-color: var(--red); }
+  .delete-btn:focus-visible { outline: 2px solid var(--red); }
 
   .empty-state {
     text-align: center;
@@ -282,6 +295,7 @@
     <option value="startTime">start date</option>
     <option value="durationMin">duration</option>
     <option value="sizeBytes">size</option>
+    <option value="projectName">project name</option>
   </select>
   <button id="groupToggle" aria-pressed="true" title="Group sessions by project">group by project</button>
   <button id="collapseAll" title="Collapse or expand all groups">collapse all</button>
@@ -294,7 +308,7 @@
 <p class="count-line" id="countLine"></p>
 <div id="list"></div>
 
-<script>window.SESSION_DATA = {"generated":"2026-06-16T02:59:12.4083638Z","machine":"DEV-WORKSTATION","claudeDir":"C:\\Users\\dev\\.claude","launchEnabled":true,"cleanupPeriodDays":30,"sessions":[{"sessionId":"1fee12c2-a7ae-46eb-a8c0-1cc8c849bde6","title":"Checkout redesign","firstPrompt":"Redesign the checkout flow to cut cart abandonment. Start with a single-page address + payment step and validate inline.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"feat/checkout","version":"1.2.47","startTime":"2026-06-16T00:59:12.4083638Z","lastActivity":"2026-06-16T02:34:12.4083638Z","durationMin":95,"sizeBytes":482113,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"508aeebd-31f7-4e97-b4d3-a0e1e8775436","title":null,"firstPrompt":"Getting a React hydration mismatch warning on the product page, only in production. Help me track down the source.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"fix/hydration","version":"1.2.47","startTime":"2026-06-16T00:21:12.4083638Z","lastActivity":"2026-06-16T00:59:12.4083638Z","durationMin":38,"sizeBytes":151204,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"93561b6f-beb1-4929-b281-c6639e031676","title":"Stripe webhooks","firstPrompt":"Wire up Stripe webhook handling for payment_intent.succeeded and charge.refunded, with idempotency keys.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"main","version":"1.2.46","startTime":"2026-06-15T18:48:12.4083638Z","lastActivity":"2026-06-15T20:59:12.4083638Z","durationMin":131,"sizeBytes":723880,"isFork":true,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"a9928fb8-d144-4bcb-808c-7b0013b4d633","title":null,"firstPrompt":"Add unit tests for the cart reducer covering merge, quantity clamp, and coupon application.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"feat/checkout","version":"1.2.46","startTime":"2026-06-14T23:40:12.4083638Z","lastActivity":"2026-06-14T23:59:12.4083638Z","durationMin":19,"sizeBytes":88990,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"235d763c-54d7-4ddd-8a7f-78d7569acc96","title":"Rate limiting","firstPrompt":"Implement token-bucket rate limiting middleware backed by Redis, keyed per API token.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"feat/rate-limit","version":"1.2.46","startTime":"2026-06-15T03:45:12.4083638Z","lastActivity":"2026-06-15T04:59:12.4083638Z","durationMin":74,"sizeBytes":341006,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"394ae02b-5fef-4a44-811a-34f1b725a2a5","title":null,"firstPrompt":"Migrate the users table to add a soft-delete column and backfill existing rows safely.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"main","version":"1.2.45","startTime":"2026-06-14T12:03:12.4083638Z","lastActivity":"2026-06-14T12:59:12.4083638Z","durationMin":56,"sizeBytes":210773,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"eb9d2f21-694f-42ce-bedc-d1599b349bf9","title":null,"firstPrompt":"Why is the /health endpoint returning 503 under load? Walk through the connection pool config.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"main","version":"1.2.45","startTime":"2026-06-13T02:47:12.4083638Z","lastActivity":"2026-06-13T02:59:12.4083638Z","durationMin":12,"sizeBytes":61240,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"3eeabde9-2ab0-41e0-862d-89dead09d53c","title":"Staging VPC","firstPrompt":"Stand up a staging VPC with private subnets, a NAT gateway, and tagged route tables in Terraform.","cwd":"C:\\Users\\dev\\infra\\terraform","projectDir":"C--Users-dev-infra-terraform","gitBranch":"main","version":"1.2.44","startTime":"2026-06-12T00:37:12.4083638Z","lastActivity":"2026-06-12T02:59:12.4083638Z","durationMin":142,"sizeBytes":511902,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-infra-terraform\\session.jsonl"},{"sessionId":"9902aff8-4059-42d2-af38-512637edf6d6","title":null,"firstPrompt":"terraform plan shows a forced replacement on the RDS instance. What attribute changed and how do I avoid it?","cwd":"C:\\Users\\dev\\infra\\terraform","projectDir":"C--Users-dev-infra-terraform","gitBranch":"main","version":"1.2.42","startTime":"2026-06-07T02:28:12.4083638Z","lastActivity":"2026-06-07T02:59:12.4083638Z","durationMin":31,"sizeBytes":109887,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-infra-terraform\\session.jsonl"},{"sessionId":"ba3d9de8-9813-4b56-a036-b6b2b962c9af","title":null,"firstPrompt":"Set up a cross-platform tmux config with sane copy-mode bindings and a minimal status line.","cwd":"C:\\Users\\dev\\code\\dotfiles","projectDir":"C--Users-dev-code-dotfiles","gitBranch":"main","version":"1.2.40","startTime":"2026-05-22T02:41:12.4083638Z","lastActivity":"2026-05-22T02:59:12.4083638Z","durationMin":18,"sizeBytes":70210,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-dotfiles\\session.jsonl"},{"sessionId":"2e4595cd-29da-47b0-89d1-2abf2b5109d2","title":"Neovim LSP","firstPrompt":"Configure nvim LSP for typescript, lua, and go with format-on-save and inlay hints.","cwd":"C:\\Users\\dev\\code\\dotfiles","projectDir":"C--Users-dev-code-dotfiles","gitBranch":"main","version":"1.2.40","startTime":"2026-05-21T01:58:12.4083638Z","lastActivity":"2026-05-21T02:59:12.4083638Z","durationMin":61,"sizeBytes":231559,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-dotfiles\\session.jsonl"},{"sessionId":"389a2acb-c8e9-4cd5-965f-182334432299","title":null,"firstPrompt":"Implement A* pathfinding for the enemy AI on a tile grid with weighted terrain.","cwd":"C:\\Users\\dev\\code\\pico-game","projectDir":"C--Users-dev-code-pico-game","gitBranch":"main","version":"1.2.39","startTime":"2026-05-20T02:15:12.4083638Z","lastActivity":"2026-05-20T02:59:12.4083638Z","durationMin":44,"sizeBytes":160338,"isFork":false,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-pico-game\\session.jsonl"},{"sessionId":"6aa4bb7c-fba7-42f2-9f61-f676f6c792c0","title":"Sprite batching","firstPrompt":"Batch sprite draws to cut frame time; we are at 18ms, target is 8ms. Profile first.","cwd":"C:\\Users\\dev\\code\\pico-game","projectDir":"C--Users-dev-code-pico-game","gitBranch":"feat/render","version":"1.2.39","startTime":"2026-05-19T01:38:12.4083638Z","lastActivity":"2026-05-19T02:59:12.4083638Z","durationMin":81,"sizeBytes":291004,"isFork":true,"filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-pico-game\\session.jsonl"}]};</script>
+<script>window.SESSION_DATA = {"generated":"2026-08-06T23:56:18.6902136Z","machine":"DEV-WORKSTATION","claudeDir":"C:\\Users\\dev\\.claude","launchEnabled":true,"cleanupPeriodDays":30,"sessions":[{"sessionId":"ad54cd38-00f7-43f1-8a4d-05662f2cfbaa","title":"Checkout redesign","firstPrompt":"Redesign the checkout flow to cut cart abandonment. Start with a single-page address + payment step and validate inline.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"feat/checkout","version":"1.2.47","startTime":"2026-08-06T21:56:18.6902136Z","lastActivity":"2026-08-06T23:31:18.6902136Z","durationMin":95,"sizeBytes":482113,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"90bfe29d-4883-4dd0-86ac-adcf860ee5a7","title":null,"firstPrompt":"Getting a React hydration mismatch warning on the product page, only in production. Help me track down the source.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"fix/hydration","version":"1.2.47","startTime":"2026-08-06T21:18:18.6902136Z","lastActivity":"2026-08-06T21:56:18.6902136Z","durationMin":38,"sizeBytes":151204,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"832b8dbd-a843-498f-8167-90a99f09ecbe","title":"Stripe webhooks","firstPrompt":"Wire up Stripe webhook handling for payment_intent.succeeded and charge.refunded, with idempotency keys.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"main","version":"1.2.46","startTime":"2026-08-06T15:45:18.6902136Z","lastActivity":"2026-08-06T17:56:18.6902136Z","durationMin":131,"sizeBytes":723880,"isFork":true,"permissionMode":"acceptEdits","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"c8e099bf-2e2f-4ed3-9145-9781d0fec13b","title":null,"firstPrompt":"Add unit tests for the cart reducer covering merge, quantity clamp, and coupon application.","cwd":"C:\\Users\\dev\\code\\aurora-web","projectDir":"C--Users-dev-code-aurora-web","gitBranch":"feat/checkout","version":"1.2.46","startTime":"2026-08-05T20:37:18.6902136Z","lastActivity":"2026-08-05T20:56:18.6902136Z","durationMin":19,"sizeBytes":88990,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-web\\session.jsonl"},{"sessionId":"c787049e-1904-4e93-a3fa-3a9833e5c088","title":"Rate limiting","firstPrompt":"Implement token-bucket rate limiting middleware backed by Redis, keyed per API token.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"feat/rate-limit","version":"1.2.46","startTime":"2026-08-06T00:42:18.6902136Z","lastActivity":"2026-08-06T01:56:18.6902136Z","durationMin":74,"sizeBytes":341006,"isFork":false,"permissionMode":"plan","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"20c3bd95-30fa-444d-a217-b6a6fddb1782","title":null,"firstPrompt":"Migrate the users table to add a soft-delete column and backfill existing rows safely.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"main","version":"1.2.45","startTime":"2026-08-05T09:00:18.6902136Z","lastActivity":"2026-08-05T09:56:18.6902136Z","durationMin":56,"sizeBytes":210773,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"0ee177e8-67a5-46f8-9177-62c77a873c8a","title":null,"firstPrompt":"Why is the /health endpoint returning 503 under load? Walk through the connection pool config.","cwd":"C:\\Users\\dev\\code\\aurora-api","projectDir":"C--Users-dev-code-aurora-api","gitBranch":"main","version":"1.2.45","startTime":"2026-08-03T23:44:18.6902136Z","lastActivity":"2026-08-03T23:56:18.6902136Z","durationMin":12,"sizeBytes":61240,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-aurora-api\\session.jsonl"},{"sessionId":"857cca55-67da-4953-9720-a8ed9ef3fc55","title":"Staging VPC","firstPrompt":"Stand up a staging VPC with private subnets, a NAT gateway, and tagged route tables in Terraform.","cwd":"C:\\Users\\dev\\infra\\terraform","projectDir":"C--Users-dev-infra-terraform","gitBranch":"main","version":"1.2.44","startTime":"2026-08-02T21:34:18.6902136Z","lastActivity":"2026-08-02T23:56:18.6902136Z","durationMin":142,"sizeBytes":511902,"isFork":false,"permissionMode":"bypassPermissions","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-infra-terraform\\session.jsonl"},{"sessionId":"c446d1e2-a874-4a88-9aed-158b7cb8978c","title":null,"firstPrompt":"terraform plan shows a forced replacement on the RDS instance. What attribute changed and how do I avoid it?","cwd":"C:\\Users\\dev\\infra\\terraform","projectDir":"C--Users-dev-infra-terraform","gitBranch":"main","version":"1.2.42","startTime":"2026-07-28T23:25:18.6902136Z","lastActivity":"2026-07-28T23:56:18.6902136Z","durationMin":31,"sizeBytes":109887,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-infra-terraform\\session.jsonl"},{"sessionId":"e1038178-5ede-44fd-ada0-3e5a4c095af6","title":null,"firstPrompt":"Set up a cross-platform tmux config with sane copy-mode bindings and a minimal status line.","cwd":"C:\\Users\\dev\\code\\dotfiles","projectDir":"C--Users-dev-code-dotfiles","gitBranch":"main","version":"1.2.40","startTime":"2026-07-12T23:38:18.6902136Z","lastActivity":"2026-07-12T23:56:18.6902136Z","durationMin":18,"sizeBytes":70210,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-dotfiles\\session.jsonl"},{"sessionId":"f032cfbc-2b81-4d64-8e20-c8d53545b6c3","title":"Neovim LSP","firstPrompt":"Configure nvim LSP for typescript, lua, and go with format-on-save and inlay hints.","cwd":"C:\\Users\\dev\\code\\dotfiles","projectDir":"C--Users-dev-code-dotfiles","gitBranch":"main","version":"1.2.40","startTime":"2026-07-11T22:55:18.6902136Z","lastActivity":"2026-07-11T23:56:18.6902136Z","durationMin":61,"sizeBytes":231559,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-dotfiles\\session.jsonl"},{"sessionId":"9c74a3f0-19fd-452b-945b-3f5c984fb9b3","title":null,"firstPrompt":"Implement A* pathfinding for the enemy AI on a tile grid with weighted terrain.","cwd":"C:\\Users\\dev\\code\\pico-game","projectDir":"C--Users-dev-code-pico-game","gitBranch":"main","version":"1.2.39","startTime":"2026-07-10T23:12:18.6902136Z","lastActivity":"2026-07-10T23:56:18.6902136Z","durationMin":44,"sizeBytes":160338,"isFork":false,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-pico-game\\session.jsonl"},{"sessionId":"90b95e3b-b948-486c-b003-1fbe8c166176","title":"Sprite batching","firstPrompt":"Batch sprite draws to cut frame time; we are at 18ms, target is 8ms. Profile first.","cwd":"C:\\Users\\dev\\code\\pico-game","projectDir":"C--Users-dev-code-pico-game","gitBranch":"feat/render","version":"1.2.39","startTime":"2026-07-09T22:35:18.6902136Z","lastActivity":"2026-07-09T23:56:18.6902136Z","durationMin":81,"sizeBytes":291004,"isFork":true,"permissionMode":"default","filePath":"C:\\Users\\dev\\.claude\\projects\\C--Users-dev-code-pico-game\\session.jsonl"}]};</script>
 <script>
 (function () {
   'use strict';
@@ -385,6 +399,9 @@
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /* ---------- data ---------- */
+  // the path shown in the group header, folded for case-insensitive ordering
+  const projectKey = s => (s.cwd || s.projectDir || '').toLowerCase();
+
   function visibleSessions() {
     const q = state.filter.trim().toLowerCase();
     let rows = DATA.sessions.slice();
@@ -398,6 +415,11 @@
     }
     const k = state.sortBy;
     rows.sort((a, b) => {
+      // project name is the one ascending sort, tie-broken by recency
+      if (k === 'projectName') {
+        const c = projectKey(a).localeCompare(projectKey(b));
+        return c || String(b.lastActivity || '').localeCompare(String(a.lastActivity || ''));
+      }
       const av = a[k], bv = b[k];
       if (av == null) return 1;
       if (bv == null) return -1;
@@ -409,8 +431,9 @@
 
   /* ---------- render ---------- */
   function rowHtml(s) {
-    const label = s.title
-      ? `<span class="named">${esc(s.title)}</span>`
+    // Titles and raw prompts render identically â€” how a session got its name
+    // (user rename, Claude's auto title, or none) is not a visual distinction.
+    const label = s.title ? esc(s.title)
       : s.firstPrompt ? esc(s.firstPrompt) : null;
     const promptCls = label ? 'prompt' : 'prompt empty';
     const fork = s.isFork ? '<span class="fork-mark" title="resumed / branched lineage">&#x2387;</span>' : '';
@@ -432,20 +455,38 @@
       ${open ? detailHtml(s) : ''}`;
   }
 
+  // Permission mode -> CLI flag. Canonical copy lives in
+  // scripts/windows/Get-ResumeCommand.ps1 (ConvertTo-PermissionFlag); keep in sync.
+  // 'default' emits nothing â€” it is the CLI's own default. Unknown values pass
+  // through as --permission-mode <value> so a future mode still round-trips.
+  function permFlag(mode) {
+    switch (mode) {
+      case null: case undefined: case '': case 'default': return '';
+      case 'bypassPermissions': return '--dangerously-skip-permissions';
+      default: return '--permission-mode ' + mode;
+    }
+  }
+
   function detailHtml(s) {
-    const resume = 'claude --resume ' + s.sessionId;
+    const flag = permFlag(s.permissionMode);
+    const resume = ('claude --resume ' + s.sessionId + ' ' + flag).trimEnd();
     return `
       <div class="detail" data-detail="${esc(s.sessionId)}">
         ${s.firstPrompt ? `<div class="full-prompt">${esc(s.firstPrompt)}</div>` : ''}
         <dl class="kv">
           <dt>resume</dt>
           <dd><span class="resume-cmd">${esc(resume)}</span>
-              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}">launch</a>` : ''}
-              <button class="copy-btn" data-copy="${esc(resume)}">copy</button></dd>
+              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}"
+                      title="opens in the default permission mode â€” the launch handler never passes permission flags">launch</a>` : ''}
+              <button class="copy-btn" data-copy="${esc(resume)}">copy</button>
+              ${CAN_LAUNCH ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
+                      title="delete this session transcript" aria-label="delete this session transcript">&#128465;</button>` : ''}</dd>
           <dt>session id</dt>
           <dd>${esc(s.sessionId)}
               <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button></dd>
           <dt>directory</dt><dd>${esc(s.cwd || 'â€”')}</dd>
+          <dt>permissions</dt>
+          <dd title="mode when the session ended; ${flag ? 'carried into the resume command above' : 'the CLI default, so no flag is needed'}">${esc(s.permissionMode || 'â€”')}</dd>
           <dt>size</dt><dd>${fmtSize(s.sizeBytes)}</dd>
           <dt>version</dt><dd>${esc(s.version || 'â€”')}</dd>
           <dt>file</dt><dd>${esc(s.filePath || 'â€”')}</dd>
@@ -494,12 +535,16 @@
       return numeric ? (v > m ? v : m)
                      : (String(v).localeCompare(String(m)) > 0 ? v : m);
     }, null);
-    const ordered = [...groups.entries()].sort((a, b) => {
-      const av = groupMax(a[1]), bv = groupMax(b[1]);
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      return numeric ? bv - av : String(bv).localeCompare(String(av));
-    });
+    const ordered = k === 'projectName'
+      // groups A->Z by their header path; members keep the recency order above
+      ? [...groups.entries()].sort((a, b) =>
+          projectKey(a[1][0]).localeCompare(projectKey(b[1][0])))
+      : [...groups.entries()].sort((a, b) => {
+          const av = groupMax(a[1]), bv = groupMax(b[1]);
+          if (av == null) return 1;
+          if (bv == null) return -1;
+          return numeric ? bv - av : String(bv).localeCompare(String(av));
+        });
 
     $list.innerHTML = ordered.map(([dir, items]) => {
       const collapsed = state.collapsedGroups.has(dir);
@@ -565,6 +610,17 @@
   $list.addEventListener('click', e => {
     const copy = e.target.closest('.copy-btn');
     if (copy) { copyText(copy.dataset.copy, copy); e.stopPropagation(); return; }
+    const del = e.target.closest('.delete-btn');
+    if (del) {
+      e.stopPropagation();
+      // The handler shows a native Yes/No confirm before anything is removed â€”
+      // that dialog, not this page, is the actual safeguard (see SECURITY.md).
+      // Fire the delete verb, then reload once the reindex has had time to run.
+      del.disabled = true; del.style.opacity = '0.5';
+      location.href = 'claudesessions://delete/' + encodeURIComponent(del.dataset.delete);
+      setTimeout(() => location.reload(), 3000);
+      return;
+    }
     if (e.target.closest('.detail')) return;
     if (e.target.closest('.gh-act') || e.target.closest('.launch-link')) return; // let the link navigate
     const gh = e.target.closest('.gh-toggle');

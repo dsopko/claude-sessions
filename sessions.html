@@ -455,15 +455,29 @@
       ${open ? detailHtml(s) : ''}`;
   }
 
+  // Permission mode -> CLI flag. Canonical copy lives in
+  // scripts/windows/Get-ResumeCommand.ps1 (ConvertTo-PermissionFlag); keep in sync.
+  // 'default' emits nothing — it is the CLI's own default. Unknown values pass
+  // through as --permission-mode <value> so a future mode still round-trips.
+  function permFlag(mode) {
+    switch (mode) {
+      case null: case undefined: case '': case 'default': return '';
+      case 'bypassPermissions': return '--dangerously-skip-permissions';
+      default: return '--permission-mode ' + mode;
+    }
+  }
+
   function detailHtml(s) {
-    const resume = 'claude --resume ' + s.sessionId;
+    const flag = permFlag(s.permissionMode);
+    const resume = ('claude --resume ' + s.sessionId + ' ' + flag).trimEnd();
     return `
       <div class="detail" data-detail="${esc(s.sessionId)}">
         ${s.firstPrompt ? `<div class="full-prompt">${esc(s.firstPrompt)}</div>` : ''}
         <dl class="kv">
           <dt>resume</dt>
           <dd><span class="resume-cmd">${esc(resume)}</span>
-              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}">launch</a>` : ''}
+              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}"
+                      title="opens in the default permission mode — the launch handler never passes permission flags">launch</a>` : ''}
               <button class="copy-btn" data-copy="${esc(resume)}">copy</button>
               ${CAN_LAUNCH ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
                       title="delete this session transcript" aria-label="delete this session transcript">&#128465;</button>` : ''}</dd>
@@ -471,6 +485,8 @@
           <dd>${esc(s.sessionId)}
               <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button></dd>
           <dt>directory</dt><dd>${esc(s.cwd || '—')}</dd>
+          <dt>permissions</dt>
+          <dd title="mode when the session ended; ${flag ? 'carried into the resume command above' : 'the CLI default, so no flag is needed'}">${esc(s.permissionMode || '—')}</dd>
           <dt>size</dt><dd>${fmtSize(s.sizeBytes)}</dd>
           <dt>version</dt><dd>${esc(s.version || '—')}</dd>
           <dt>file</dt><dd>${esc(s.filePath || '—')}</dd>

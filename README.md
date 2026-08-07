@@ -93,6 +93,12 @@ see `scripts/posix/README.md`.
   for the absolute index time.
 - Row click: full first prompt, session id, **launch** (resume in its own
   directory), copy-ready resume command.
+- The copyable resume command carries the permission mode the session ended in,
+  so `acceptEdits` / `bypassPermissions` / `plan` sessions come back the way you
+  left them instead of reverting to default. The row also shows that mode.
+  **launch** deliberately omits the flag — that link is reachable by any webpage
+  once the protocol is registered, and auto-starting a permission-bypassed agent
+  from a link is a different risk than pasting one yourself (see SECURITY.md).
 - Group headers: **+ new** and **continue** for that project. Buttons appear
   only when the protocol is registered (config.json drives it).
 

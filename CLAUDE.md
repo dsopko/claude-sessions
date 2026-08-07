@@ -33,6 +33,7 @@ resume command when a result looks like something they want to reopen.
 | Rebuild index only (no browser) | add `-NoLaunch` |
 | Digest one session (meta, first prompt, last N prompts, event counts) | `... -File ./scripts/windows/Get-SessionDetail.ps1 -Id <uuid-or-prefix> [-LastN 10]` |
 | Full-text search across all transcripts | `... -File ./scripts/windows/Search-Sessions.ps1 -Pattern <regex> [-SimpleMatch]` |
+| Resume command incl. permission flag | `... -File ./scripts/windows/Get-ResumeCommand.ps1 -Id <uuid-or-prefix> [-Quiet]` |
 | Register/unregister `claudesessions://` links | `... -File ./scripts/windows/Register-Protocol.ps1 [-Unregister]` |
 | Full uninstall (protocol + shortcut + generated files) | `... -File ./scripts/windows/Uninstall.ps1` |
 
@@ -49,7 +50,13 @@ resume command when a result looks like something they want to reopen.
 3. **Quote sparingly from search snippets.** Summarize what a session was
    about; don't reproduce long transcript excerpts in your replies.
 4. **Resume commands:** when the user wants to reopen a session, give them
-   `claude --resume <sessionId>` to run in the target project's directory.
+   `claude --resume <sessionId>` to run in the target project's directory —
+   plus the session's permission flag, so it comes back in the mode it left in.
+   `Get-ResumeCommand.ps1 -Id <uuid-or-prefix>` builds the whole line for you.
+   The `launch` button in the viewer deliberately does **not** carry that flag
+   (see Rule 5 and SECURITY.md): it is protocol-reachable, and auto-starting a
+   permission-bypassed agent from a link any webpage can fire is a real
+   escalation. Flags belong in text the user copies and runs themselves.
 5. **Protocol handler is security-sensitive.** If the user asks to customize
    anything about launch behavior (Launch-Handler.ps1, Register-Protocol.ps1,
    new verbs, new link types), FIRST read SECURITY.md and give the user its
@@ -78,7 +85,25 @@ resume command when a result looks like something they want to reopen.
 
 `sessionId, title, firstPrompt (truncated 300), cwd, projectDir, gitBranch,
 version, startTime, lastActivity, durationMin, sizeBytes, isFork (forkedFrom
-present), filePath`
+present), permissionMode, filePath`
+
+`permissionMode` is the mode the session was in when it **ended** — the last
+value in the tail window, from any record type that carries the field (both
+`user` records and dedicated `permission-mode` records do). It maps to a resume
+flag; `Get-ResumeCommand.ps1` owns the canonical mapping and `sessions.html`
+(`permFlag`) mirrors it:
+
+| value | flag |
+|---|---|
+| `default` | *(none — the CLI's own default)* |
+| `acceptEdits` | `--permission-mode acceptEdits` |
+| `auto` | `--permission-mode auto` |
+| `plan` | `--permission-mode plan` |
+| `bypassPermissions` | `--dangerously-skip-permissions` |
+
+`manual` and `dontAsk` are also valid CLI values and pass through unmapped.
+Launch mode is not recoverable separately — this is "resume as I left it," which
+differed from "relaunch as it started" in 34 of 164 measured sessions.
 
 `title` names a row the way Claude Code names the session, ordered by **source,
 never by file position**:

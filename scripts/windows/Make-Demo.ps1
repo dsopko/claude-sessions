@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $now  = Get-Date
 
-function S($proj, $cwd, $branch, $title, $prompt, $ago, $unit, $dur, $size, $fork, $ver) {
+function S($proj, $cwd, $branch, $title, $prompt, $ago, $unit, $dur, $size, $fork, $ver, $perm = 'default') {
     $last = if ($unit -eq 'h') { $now.AddHours(-$ago) } elseif ($unit -eq 'm') { $now.AddMinutes(-$ago) } else { $now.AddDays(-$ago) }
     $start = if ($dur) { $last.AddMinutes(-$dur) } else { $last }
     [pscustomobject][ordered]@{
@@ -22,6 +22,7 @@ function S($proj, $cwd, $branch, $title, $prompt, $ago, $unit, $dur, $size, $for
         durationMin  = $dur
         sizeBytes    = $size
         isFork       = $fork
+        permissionMode = $perm
         filePath     = "C:\Users\dev\.claude\projects\$proj\session.jsonl"
     }
 }
@@ -35,14 +36,14 @@ $gam = 'C:\Users\dev\code\pico-game';  $gamK = 'C--Users-dev-code-pico-game'
 $sessions = @(
     S $webK $web 'feat/checkout' 'Checkout redesign' 'Redesign the checkout flow to cut cart abandonment. Start with a single-page address + payment step and validate inline.' 25 'm' 95 482113 $false '1.2.47'
     S $webK $web 'fix/hydration' $null 'Getting a React hydration mismatch warning on the product page, only in production. Help me track down the source.' 2 'h' 38 151204 $false '1.2.47'
-    S $webK $web 'main' 'Stripe webhooks' 'Wire up Stripe webhook handling for payment_intent.succeeded and charge.refunded, with idempotency keys.' 6 'h' 131 723880 $true '1.2.46'
+    S $webK $web 'main' 'Stripe webhooks' 'Wire up Stripe webhook handling for payment_intent.succeeded and charge.refunded, with idempotency keys.' 6 'h' 131 723880 $true '1.2.46' 'acceptEdits'
     S $webK $web 'feat/checkout' $null 'Add unit tests for the cart reducer covering merge, quantity clamp, and coupon application.' 27 'h' 19 88990 $false '1.2.46'
 
-    S $apiK $api 'feat/rate-limit' 'Rate limiting' 'Implement token-bucket rate limiting middleware backed by Redis, keyed per API token.' 22 'h' 74 341006 $false '1.2.46'
+    S $apiK $api 'feat/rate-limit' 'Rate limiting' 'Implement token-bucket rate limiting middleware backed by Redis, keyed per API token.' 22 'h' 74 341006 $false '1.2.46' 'plan'
     S $apiK $api 'main' $null 'Migrate the users table to add a soft-delete column and backfill existing rows safely.' 38 'h' 56 210773 $false '1.2.45'
     S $apiK $api 'main' $null 'Why is the /health endpoint returning 503 under load? Walk through the connection pool config.' 3 'd' 12 61240 $false '1.2.45'
 
-    S $infK $inf 'main' 'Staging VPC' 'Stand up a staging VPC with private subnets, a NAT gateway, and tagged route tables in Terraform.' 4 'd' 142 511902 $false '1.2.44'
+    S $infK $inf 'main' 'Staging VPC' 'Stand up a staging VPC with private subnets, a NAT gateway, and tagged route tables in Terraform.' 4 'd' 142 511902 $false '1.2.44' 'bypassPermissions'
     S $infK $inf 'main' $null 'terraform plan shows a forced replacement on the RDS instance. What attribute changed and how do I avoid it?' 9 'd' 31 109887 $false '1.2.42'
 
     S $dotK $dot 'main' $null 'Set up a cross-platform tmux config with sane copy-mode bindings and a minimal status line.' 25 'd' 18 70210 $false '1.2.40'

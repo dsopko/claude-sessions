@@ -78,16 +78,19 @@ per session and ignores everything between them:
 │  │    "gitBranch":"main"}                          last gitBranch ⇒ branch (end)
 │  │ {"type":"custom-title","customTitle":"…"}    ← the user's rename ⇒ title
 │  │ {"type":"ai-title","aiTitle":"Fix pricing…"} ← restamped here too
+│  │ {"type":"permission-mode",                   ← last mode from ANY carrier
+│  │    "permissionMode":"acceptEdits"}              ⇒ permissionMode (at exit)
 │  └─────────────────────────────────────────────────────────
 └──────────────────────────────────────────────────────────── EOF
+        (if no mode carrier landed in these 64 KB, re-seek to EOF − 1 MB)
 ```
 
 What each window produces (see `Update-SessionIndex.ps1`):
 
 | Source | Fields |
 |---|---|
-| **Head** (`Read-HeadLines`, ≤120 lines / 256 KB) | `startTime`, `cwd`, `version`, `firstPrompt`, `sessionId` (plus fallback copies of `title` / `isFork`) |
-| **Tail** (`Read-TailLines`, last 64 KB) | `lastActivity` (last timestamp; falls back to file mtime), `gitBranch` (last value — the branch the session **ended** on; falls back to the head value), `title` (last `customTitle`, else last `aiTitle`), `isFork` (`forkedFrom`) |
+| **Head** (`Read-HeadLines`, ≤120 lines / 256 KB) | `startTime`, `cwd`, `version`, `firstPrompt`, `sessionId` (plus fallback copies of `title` / `isFork` / `permissionMode`) |
+| **Tail** (`Read-TailLines`, last 64 KB; widened to 1 MB if no mode carrier is found) | `lastActivity` (last timestamp; falls back to file mtime), `gitBranch` (last value — the branch the session **ended** on; falls back to the head value), `title` (last `customTitle`, else last `aiTitle`), `isFork` (`forkedFrom`), `permissionMode` (last value from any carrier — the mode at exit) |
 | **Filesystem** (no content read) | `sizeBytes` (file length), `filePath`, `projectDir` (folder name) |
 | **Derived** | `durationMin = lastActivity − startTime` |
 
@@ -112,6 +115,34 @@ Two mechanics worth knowing:
   is why the head can't see it. Both types keep stamping *after* a rename, so the
   physically-last title line is often the stale `ai-title`; order by source
   (`customTitle` → `aiTitle`), then take the last of that type.
+- **`permissionMode` has two carriers, and you must read both.** It is stamped
+  on `user` records at prompt submission (1561 across a 164-session corpus) *and*
+  written as its own `permission-mode` record at turn/checkpoint boundaries and
+  on change (2182 records, of which only 38 are real value changes). Take the
+  last value from **either** — that is the mode the session ended in.
+
+  Filtering to prompts only is the tempting simplification and it is wrong. It
+  disagreed on 23 of 164 sessions: 17 whose final prompt-shaped record is
+  machinery carrying no mode (a `<command-name>` slash invocation, a
+  `<local-command-stdout>` echo, an interrupt marker), and 6 that toggled mode
+  after their last prompt. In one of those 6 the last prompt read
+  `bypassPermissions` while the session actually exited in `acceptEdits` — so the
+  prompt-only rule errs toward the *more* permissive command. Reading any carrier
+  needs no fallback branch and terminates sooner, since `permission-mode` records
+  cluster nearer EOF than prompts do.
+
+  A residue of 10 genuine typed prompts (0.6%) carry no `permissionMode` at all,
+  across unrelated versions and projects — not a version boundary. They fall
+  through to the neighbouring record harmlessly.
+
+  **The 64 KB window is not always enough.** A long session can end with that much
+  unbroken tool traffic and carry no mode record inside it — 3 of 164 on this
+  machine, the worst a 12.9 MB transcript, and all three sat at a *non-default*
+  mode, so silently defaulting them would have been wrong. On a miss the readers
+  widen once to 1 MB, which resolved all three. Widening is deliberately preferred
+  over falling back to the head: the head carries the mode the session **launched**
+  in, and launch mode differed from exit mode in 34 of 164 sessions. The head value
+  survives only as a last resort in the indexer.
 
 ## Why bother
 
