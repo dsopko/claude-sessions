@@ -10,6 +10,7 @@
                                                  (native Yes/No confirm; path resolved
                                                  from the index, never from the URL)
       claudesessions://new/<projectKey>          new claude session in that project
+                                                 (--permission-mode auto)
       claudesessions://continue/<projectKey>     claude --continue in that project
       claudesessions://assist/start              claude session in the install folder,
                                                  fixed kickoff prompt (search assistant)
@@ -205,7 +206,9 @@ try {
                 exit 1
             }
             $cwd = $matches2[0].cwd
-            $claudeArgs = if ($verb -eq 'continue') { '--continue' } else { '' }
+            # Hardcoded constants, never URL content: 'new' starts in auto
+            # permission mode; 'continue' resumes with whatever the session had.
+            $claudeArgs = if ($verb -eq 'continue') { '--continue' } else { '--permission-mode auto' }
         }
     }
 
