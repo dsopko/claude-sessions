@@ -94,7 +94,9 @@ see `scripts/posix/README.md`.
 - Row click: full first prompt, session id, **launch** (resume in its own
   directory), copy-ready resume command.
 - Group headers: **+ new** and **continue** for that project. Buttons appear
-  only when the protocol is registered (config.json drives it).
+  only when the protocol is registered (config.json drives it). **+ new**
+  starts the session with `--permission-mode auto`; **continue** doesn't
+  override the mode.
 
 ## How it works
 
