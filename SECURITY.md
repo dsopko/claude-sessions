@@ -20,9 +20,11 @@ in a directory you already use Claude in.* Annoying, not dangerous.
 What keeps the ceiling there:
 
 1. **Strict shape validation.** The URL must match
-   `claudesessions://(resume|delete|new|continue|assist|reindex)/<one-segment>`
+   `claudesessions://(resume|fork|delete|new|continue|assist|reindex)/<one-segment>`
    exactly. Unknown verbs, extra path segments, query strings: rejected.
-2. **Strict argument validation.** `resume` and `delete` take only a UUID.
+2. **Strict argument validation.** `resume`, `fork` and `delete` take only a
+   UUID. `fork` is `resume` plus the hardcoded `--fork-session` flag; it takes
+   no name or title, because that would put webpage text on a command line.
    `new` and `continue` take only `[A-Za-z0-9._-]{1,200}`. `assist` and
    `reindex` carry no data at all — their argument must be the literal
    `start` / `now`, so no webpage can feed them anything.
