@@ -10,6 +10,13 @@
     independent of transcript size. Tolerant parser: unknown line types and
     malformed lines are skipped, missing fields become null.
 
+    Incremental: rows are reused from the previous data.js for every transcript
+    whose size and mtime say it has not changed since that index was generated,
+    so a run costs time proportional to what CHANGED, not to how many sessions
+    exist. This matters because the script runs on every launch (Start Menu
+    shortcut, and again from the SessionStart hook), and transcripts accumulate
+    forever when cleanupPeriodDays is raised.
+
 .PARAMETER ClaudeDir
     Root of the Claude Code data directory. Default: $env:USERPROFILE\.claude
 
@@ -18,15 +25,25 @@
 
 .PARAMETER NoLaunch
     Skip opening the browser (used when Claude refreshes the index mid-session).
+
+.PARAMETER Force
+    Ignore the previous data.js and re-parse every transcript. Use after editing
+    the extraction logic, or to rebuild an index you suspect is wrong.
 #>
 [CmdletBinding()]
 param(
     [string]$ClaudeDir = (Join-Path $env:USERPROFILE '.claude'),
     [string]$OutputDir,
-    [switch]$NoLaunch
+    [switch]$NoLaunch,
+    [switch]$Force
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Bump whenever the per-session extraction below changes shape or meaning, so
+# rows cached by an older build are discarded instead of silently surviving a
+# script upgrade with missing or stale fields.
+$IndexerVersion = 1
 
 # Resolve our own location defensively: $PSScriptRoot can come up empty under
 # some hook/host invocation paths, and Split-Path '' throws.
@@ -114,8 +131,46 @@ function Get-ProjectLabel {
 # sync with the prompt in Launch-Handler.ps1 (the 'assist' switch arm).
 $AssistKickoffPrefix = 'The user clicked Search with Claude on the sessions page'
 
+# --- previous index (row cache) ----------------------------------------------
+
+# data.js is its own cache: every row already carries filePath and sizeBytes,
+# so a prior run tells us what each transcript looked like when it was parsed.
+# A row is reusable when the file is byte-identical to what produced it, which
+# for append-only JSONL means: same length, and untouched since that index was
+# generated. Anything else -- new file, appended file, corrupt or absent cache,
+# a different ClaudeDir, an extraction change ($IndexerVersion) -- re-parses.
+$dataPath = Join-Path $OutputDir 'data.js'
+$cache = @{}
+$cacheGenerated = $null
+if (-not $Force -and (Test-Path $dataPath)) {
+    try {
+        $prevRaw = Get-Content -Path $dataPath -Raw
+        if ($prevRaw -match '(?s)^\s*window\.SESSION_DATA\s*=\s*(.*);\s*$') {
+            $prev = $Matches[1] | ConvertFrom-Json
+            if ($prev.indexerVersion -eq $IndexerVersion -and
+                $prev.claudeDir -eq $ClaudeDir -and
+                $prev.generated) {
+                $cacheGenerated = ([datetime]$prev.generated).ToUniversalTime()
+                foreach ($s in $prev.sessions) {
+                    if ($s.filePath) { $cache[$s.filePath] = $s }
+                }
+            }
+        }
+    } catch {
+        # Unreadable or malformed index: fall through to a full rebuild.
+        $cache = @{}
+        $cacheGenerated = $null
+    }
+}
+
 # --- scan --------------------------------------------------------------------
 
+# Stamped as "generated" below. Taken BEFORE the scan, not after: a transcript
+# appended to while the scan is running must look newer than the index it lands
+# in, or the next run would reuse a row built from a partial read.
+$scanStarted = (Get-Date).ToUniversalTime().ToString('o')
+
+$reused = 0
 $sessions = [System.Collections.Generic.List[object]]::new()
 $files = Get-ChildItem -Path $projectsDir -Directory | ForEach-Object {
     $projDir = $_
@@ -126,6 +181,18 @@ $files = Get-ChildItem -Path $projectsDir -Directory | ForEach-Object {
 
 foreach ($entry in $files) {
     $f = $entry.File
+
+    # Unchanged since the cached index was built? Reuse the row and skip the
+    # head/tail parse entirely -- this is the whole point of the optimization.
+    if ($cacheGenerated -and $cache.ContainsKey($f.FullName)) {
+        $hit = $cache[$f.FullName]
+        if ($hit.sizeBytes -eq $f.Length -and $f.LastWriteTimeUtc -le $cacheGenerated) {
+            $sessions.Add($hit)
+            $reused++
+            continue
+        }
+    }
+
     try {
         $head = Read-HeadLines -Path $f.FullName
         if ($head.Count -eq 0) { continue }
@@ -279,7 +346,8 @@ if (Test-Path $settingsPath) {
 }
 
 $payload = [pscustomobject]@{
-    generated         = (Get-Date).ToUniversalTime().ToString('o')
+    generated         = $scanStarted
+    indexerVersion    = $IndexerVersion
     machine           = $env:COMPUTERNAME
     claudeDir         = $ClaudeDir
     launchEnabled     = $launchEnabled
@@ -288,12 +356,13 @@ $payload = [pscustomobject]@{
 }
 
 $json = $payload | ConvertTo-Json -Depth 6 -Compress
-$dataPath = Join-Path $OutputDir 'data.js'
 # data.js, not data.json: <script src> sidesteps the file:// fetch restriction.
 Set-Content -Path $dataPath -Value "window.SESSION_DATA = $json;" -Encoding UTF8
 
-Write-Host ("Indexed {0} sessions across {1} projects -> {2}" -f `
-    $sessions.Count, ($sessions.projectDir | Select-Object -Unique).Count, $dataPath)
+$parsed = $sessions.Count - $reused
+Write-Host ("Indexed {0} sessions across {1} projects ({2} parsed, {3} reused) -> {4}" -f `
+    $sessions.Count, ($sessions.projectDir | Select-Object -Unique).Count, `
+    $parsed, $reused, $dataPath)
 
 function Resolve-DefaultBrowser {
     # Full path to the user's default browser exe, or $null. Reads the https (then
