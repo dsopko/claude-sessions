@@ -6,6 +6,8 @@
 .DESCRIPTION
     Verbs:
       claudesessions://resume/<session-uuid>     resume that session in its directory
+      claudesessions://fork/<session-uuid>       resume that session as a fork (new
+                                                 session id; original left untouched)
       claudesessions://delete/<session-uuid>     permanently delete that transcript
                                                  (native Yes/No confirm; path resolved
                                                  from the index, never from the URL)
@@ -62,7 +64,7 @@ function Confirm-Message {
 try {
     # --- parse + validate (hostile input) ------------------------------------
     $decoded = [System.Uri]::UnescapeDataString($Url).Trim()
-    if ($decoded -notmatch '^claudesessions://(resume|delete|new|continue|assist|reindex)/([^/?#]+)/?$') {
+    if ($decoded -notmatch '^claudesessions://(resume|fork|delete|new|continue|assist|reindex)/([^/?#]+)/?$') {
         Show-Message "Unrecognized link:`n$Url"
         exit 1
     }
@@ -72,7 +74,7 @@ try {
     $uuidPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
     $keyPattern  = '^[A-Za-z0-9._-]{1,200}$'
 
-    if ($verb -in @('resume','delete') -and $arg -notmatch $uuidPattern) {
+    if ($verb -in @('resume','fork','delete') -and $arg -notmatch $uuidPattern) {
         Show-Message "Invalid session id in link."
         exit 1
     }
@@ -86,7 +88,7 @@ try {
         Show-Message "Invalid reindex link."
         exit 1
     }
-    if ($verb -notin @('resume','assist','reindex') -and $arg -notmatch $keyPattern) {
+    if ($verb -notin @('resume','fork','assist','reindex') -and $arg -notmatch $keyPattern) {
         Show-Message "Invalid project key in link."
         exit 1
     }
@@ -189,7 +191,7 @@ try {
             # The session's startup hook re-runs the indexer; the page is already open.
             $env:CLAUDESESSIONS_NOLAUNCH = '1'
         }
-        'resume' {
+        { $_ -in @('resume','fork') } {
             $s = @($data.sessions | Where-Object { $_.sessionId -eq $arg }) | Select-Object -First 1
             if (-not $s) {
                 Show-Message "Session not in the index. The page may be stale - refresh the index and try again."
@@ -197,6 +199,9 @@ try {
             }
             $cwd = $s.cwd
             $claudeArgs = "--resume $($s.sessionId)"   # value from index, not from URL
+            # fork: same history, new session id, original transcript untouched.
+            # Hardcoded constant - no name/title from the URL (SECURITY.md).
+            if ($verb -eq 'fork') { $claudeArgs += ' --fork-session' }
         }
         default {
             $matches2 = @($data.sessions | Where-Object { $_.projectDir -eq $arg } |

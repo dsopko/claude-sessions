@@ -160,6 +160,8 @@
   }
   .launch-link:hover { background: #ffc878; }
   .launch-link:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: 1px; }
+  .launch-link.fork-link { background: var(--teal); }
+  .launch-link.fork-link:hover { filter: brightness(1.15); }
   .gh-caret { color: var(--faint); font-size: 11px; width: 12px; transition: transform .12s; }
   .group.collapsed .gh-caret { transform: rotate(-90deg); }
   .gh-path { transition: color .1s; }
@@ -457,16 +459,22 @@
 
   function detailHtml(s) {
     const resume = 'claude --resume ' + s.sessionId;
+    const fork = resume + ' --fork-session';
     return `
       <div class="detail" data-detail="${esc(s.sessionId)}">
         ${s.firstPrompt ? `<div class="full-prompt">${esc(s.firstPrompt)}</div>` : ''}
         <dl class="kv">
           <dt>resume</dt>
           <dd><span class="resume-cmd">${esc(resume)}</span>
-              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}">launch</a>` : ''}
+              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}">launch</a>
+              <a class="launch-link fork-link" href="claudesessions://fork/${esc(s.sessionId)}"
+                 title="open a copy of this session under a new session id; the original is untouched">fork</a>` : ''}
               <button class="copy-btn" data-copy="${esc(resume)}">copy</button>
               ${CAN_LAUNCH ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
                       title="delete this session transcript" aria-label="delete this session transcript">&#128465;</button>` : ''}</dd>
+          <dt>fork</dt>
+          <dd><span class="resume-cmd">${esc(fork)}</span>
+              <button class="copy-btn" data-copy="${esc(fork)}">copy</button></dd>
           <dt>session id</dt>
           <dd>${esc(s.sessionId)}
               <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button></dd>
