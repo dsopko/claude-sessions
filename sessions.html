@@ -459,7 +459,6 @@
 
   function detailHtml(s) {
     const resume = 'claude --resume ' + s.sessionId;
-    const fork = resume + ' --fork-session';
     return `
       <div class="detail" data-detail="${esc(s.sessionId)}">
         ${s.firstPrompt ? `<div class="full-prompt">${esc(s.firstPrompt)}</div>` : ''}
@@ -472,9 +471,6 @@
               <button class="copy-btn" data-copy="${esc(resume)}">copy</button>
               ${CAN_LAUNCH ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
                       title="delete this session transcript" aria-label="delete this session transcript">&#128465;</button>` : ''}</dd>
-          <dt>fork</dt>
-          <dd><span class="resume-cmd">${esc(fork)}</span>
-              <button class="copy-btn" data-copy="${esc(fork)}">copy</button></dd>
           <dt>session id</dt>
           <dd>${esc(s.sessionId)}
               <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button></dd>
