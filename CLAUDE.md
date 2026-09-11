@@ -31,6 +31,7 @@ resume command when a result looks like something they want to reopen.
 |---|---|
 | Rebuild index + reopen page | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/Update-SessionIndex.ps1` |
 | Rebuild index only (no browser) | add `-NoLaunch` |
+| Force a full re-parse (after changing extraction logic) | add `-Force` |
 | Digest one session (meta, first prompt, last N prompts, event counts) | `... -File ./scripts/windows/Get-SessionDetail.ps1 -Id <uuid-or-prefix> [-LastN 10]` |
 | Full-text search across all transcripts | `... -File ./scripts/windows/Search-Sessions.ps1 -Pattern <regex> [-SimpleMatch]` |
 | Register/unregister `claudesessions://` links | `... -File ./scripts/windows/Register-Protocol.ps1 [-Unregister]` |
@@ -95,9 +96,26 @@ Both title types re-stamp every prompt, so the last title *line* in a renamed
 transcript is often the stale `aiTitle` — hence ordering by source. See
 STORAGE.md for why both are read from the tail window.
 
-Top-level (alongside `sessions`): `generated, machine, claudeDir, launchEnabled,
-cleanupPeriodDays`. The last is read from the user's `settings.json` (default 30)
-so the viewer can show per-session expiry — Claude Code deletes a transcript that
-many days after its last activity. The page flags sessions due within 7 days.
+Top-level (alongside `sessions`): `generated, indexerVersion, machine, claudeDir,
+launchEnabled, cleanupPeriodDays`. `cleanupPeriodDays` is read from the user's
+`settings.json` (default 30) so the viewer can show per-session expiry — Claude
+Code deletes a transcript that many days after its last activity. The page flags
+sessions due within 7 days.
 
 Sub-agent transcripts (`agent-*.jsonl`) are excluded from the index.
+
+## The index is incremental — respect the cache contract
+
+`Update-SessionIndex.ps1` reuses a row from the existing `data.js` whenever a
+transcript's `sizeBytes` matches and its mtime is at or before that index's
+`generated` stamp; everything else re-parses. Two consequences when editing it:
+
+- **Bump `$IndexerVersion` whenever you change what a row contains or means.**
+  Rows cached by an older build are kept verbatim, so without the bump a schema
+  or extraction change silently applies only to sessions that happen to change
+  afterwards. The version mismatch forces a full rebuild.
+- **`generated` is stamped from the start of the scan, not the end**, so a
+  transcript appended to mid-scan looks newer than the index it landed in and
+  re-parses next run. Don't "fix" it to the emit time.
+
+Use `-Force` to rebuild from scratch while iterating on extraction logic.
