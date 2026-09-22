@@ -231,7 +231,9 @@
   }
   .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 14px; font-size: 12px; }
   .kv dt { color: var(--faint); }
-  .kv dd { font-family: var(--mono); color: var(--dim); word-break: break-all; display: flex; align-items: center; gap: 8px; }
+  .kv dd { font-family: var(--mono); color: var(--dim); word-break: break-all; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  /* Separates the size/version metadata sharing the session-id row. */
+  .kv-sep { color: var(--faint); margin: 0 -4px; }
   .copy-btn {
     background: var(--panel-2);
     border: 1px solid var(--line);
@@ -532,10 +534,10 @@
                       title="delete this session transcript" aria-label="delete this session transcript">&#128465;</button>` : ''}</dd>
           <dt>session id</dt>
           <dd>${esc(s.sessionId)}
-              <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button></dd>
+              <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button>
+              <span class="kv-sep">&middot;</span><span>${fmtSize(s.sizeBytes)}</span>
+              <span class="kv-sep">&middot;</span><span>${s.version ? 'v' + esc(s.version) : '&mdash;'}</span></dd>
           <dt>directory</dt><dd>${esc(s.cwd || '—')}</dd>
-          <dt>size</dt><dd>${fmtSize(s.sizeBytes)}</dd>
-          <dt>version</dt><dd>${esc(s.version || '—')}</dd>
           <dt>file</dt><dd>${esc(s.filePath || '—')}</dd>
         </dl>
       </div>`;
