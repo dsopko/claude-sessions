@@ -217,6 +217,8 @@
     padding: 14px 16px;
     cursor: default;
   }
+  /* The last-prompt block trails the metadata list; keep them off each other. */
+  .detail .kv + .full-prompt { margin-top: 12px; }
   .detail .full-prompt {
     font-family: var(--mono);
     font-size: 12.5px;
@@ -540,7 +542,16 @@
           <dt>directory</dt><dd>${esc(s.cwd || '—')}</dd>
           <dt>file</dt><dd>${esc(s.filePath || '—')}</dd>
         </dl>
+        ${lastPromptHtml(s)}
       </div>`;
+  }
+
+  // Where the session left off, which is usually what decides whether you want
+  // to resume it. Omitted when it repeats the first prompt, so a session with a
+  // single prompt does not print the same text twice.
+  function lastPromptHtml(s) {
+    if (!s.lastPrompt || s.lastPrompt === s.firstPrompt) return '';
+    return `<div class="full-prompt">${esc(s.lastPrompt)}</div>`;
   }
 
   const colHeads = `

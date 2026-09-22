@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
 # Bump whenever the per-session extraction below changes shape or meaning, so
 # rows cached by an older build are discarded instead of silently surviving a
 # script upgrade with missing or stale fields.
-$IndexerVersion = 1
+$IndexerVersion = 2
 
 # Resolve our own location defensively: $PSScriptRoot can come up empty under
 # some hook/host invocation paths, and Split-Path '' throws.
@@ -253,8 +253,14 @@ foreach ($entry in $files) {
         # window. Measured worst case across this machine: custom-title 27 KB from
         # EOF, ai-title 33 KB, against the 64 KB tail. Head values (above) act as a
         # fallback for the rare file whose titles all predate the tail window.
+        # lastPrompt rides along on this same pass: the last real user prompt in
+        # the tail is where the session left off, which is what you want when
+        # deciding whether to resume it. Keep overwriting -- the final match wins.
+        # The assist kickoff is skipped for the same reason the head pass skips
+        # it: it is injected boilerplate, not something the user typed.
         $lastTs = $null
         $lastBranch = $null
+        $lastPrompt = $null
         foreach ($raw in (Read-TailLines -Path $f.FullName)) {
             $o = ConvertFrom-JsonSafe $raw
             if ($o -and $o.timestamp) { $lastTs = $o.timestamp }
@@ -262,7 +268,30 @@ foreach ($entry in $files) {
             if ($o -and $o.type -eq 'custom-title' -and $o.customTitle) { $customTitle = $o.customTitle }
             if ($o -and $o.type -eq 'ai-title'     -and $o.aiTitle)     { $aiTitle     = $o.aiTitle }
             if ($o -and $o.forkedFrom) { $isFork = $true }
+            if (Test-RealUserPrompt $o) {
+                $lc = $o.message.content
+                if ($lc -notlike "$AssistKickoffPrefix*") { $lastPrompt = $lc }
+            }
         }
+        # A long agentic session can end in far more than 64 KB of assistant and
+        # tool-result traffic, so the standard tail finds no prompt at all --
+        # measured here, that was 120 of 286 sessions, every one of them over
+        # 64 KB, median 1.3 MB. Those are exactly the sessions where "where did I
+        # leave off?" is worth answering, so widen the window once when the first
+        # pass comes up empty. Scanned backwards with a break: it stops at the
+        # first prompt found, so the extra parsing is bounded by how far the
+        # trailing tool output actually runs, not by the window size.
+        if (-not $lastPrompt -and $f.Length -gt 65536) {
+            $wide = @(Read-TailLines -Path $f.FullName -TailBytes 524288)
+            for ($i = $wide.Count - 1; $i -ge 0; $i--) {
+                $o = ConvertFrom-JsonSafe $wide[$i]
+                if (Test-RealUserPrompt $o) {
+                    $lc = $o.message.content
+                    if ($lc -notlike "$AssistKickoffPrefix*") { $lastPrompt = $lc; break }
+                }
+            }
+        }
+
         if (-not $lastTs) { $lastTs = $f.LastWriteTimeUtc.ToString('o') }
         if ($lastBranch) { $gitBranch = $lastBranch }   # end-of-session branch wins
 
@@ -303,6 +332,7 @@ foreach ($entry in $files) {
             sessionId    = if ($meta) { $meta.sessionId } else { [System.IO.Path]::GetFileNameWithoutExtension($f.Name) }
             title        = $displayTitle
             firstPrompt  = if ($firstPrompt) { $firstPrompt.Substring(0, [Math]::Min(300, $firstPrompt.Length)) } else { $null }
+            lastPrompt   = if ($lastPrompt)  { $lastPrompt.Substring(0, [Math]::Min(300, $lastPrompt.Length)) }   else { $null }
             cwd          = if ($cwd) { $cwd } else { Get-ProjectLabel $entry.ProjDirName }
             projectDir   = $entry.ProjDirName
             gitBranch    = $gitBranch
