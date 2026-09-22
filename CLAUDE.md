@@ -77,9 +77,17 @@ resume command when a result looks like something they want to reopen.
 
 ## Index schema (what data.js contains per session)
 
-`sessionId, title, firstPrompt (truncated 300), cwd, projectDir, gitBranch,
-version, startTime, lastActivity, durationMin, sizeBytes, isFork (forkedFrom
-present), filePath`
+`sessionId, title, firstPrompt (truncated 300), lastPrompt (truncated 300), cwd,
+projectDir, gitBranch, version, startTime, lastActivity, durationMin, sizeBytes,
+isFork (forkedFrom present), filePath`
+
+`lastPrompt` is the last human-typed prompt in the transcript — where the session
+left off, which is usually what decides whether it is worth resuming. It is read
+off the same tail pass as `lastActivity`, and when that 64 KB window holds no
+user prompt (a session ending in a long run of tool output) the reader widens to
+512 KB and scans backwards until it finds one. It stays null for the rare
+session with nothing even there; the viewer then renders no last-prompt block,
+and also omits it when it would merely repeat `firstPrompt`.
 
 `title` names a row the way Claude Code names the session, ordered by **source,
 never by file position**:
