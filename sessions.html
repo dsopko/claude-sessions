@@ -19,6 +19,14 @@
     --red: #ff6b6b;
     --mono: "Cascadia Code", Consolas, ui-monospace, "SF Mono", monospace;
     --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+    /* The Claude Dashboard title face, declared exactly as its TitleFont resource
+       does. Cormorant Garamond is not installed on a stock Windows box, so this
+       normally renders Constantia — which is what the dashboard's own caption
+       renders too. Installing Cormorant upgrades both at once. */
+    --title: "Cormorant Garamond", Constantia, Georgia, "Times New Roman", serif;
+    /* The gold the app icon is drawn in. Close to --amber-dim but not the same
+       value: this one is the brand accent, not a state colour. */
+    --brand-gold: #b68235;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { background: var(--ink); }
@@ -27,9 +35,63 @@
     color: var(--text);
     font-size: 14px;
     line-height: 1.45;
-    padding: 28px clamp(16px, 4vw, 56px) 80px;
+  }
+  /* The measure that used to live on body. It moved here so the brand bar can be
+     a full-width sibling of it rather than a child fighting its way back out to
+     the window edges with negative margins. */
+  .page {
     max-width: 1280px;
     margin: 0 auto;
+    padding: 28px clamp(16px, 4vw, 56px) 80px;
+  }
+
+  /* ---- brand bar ---- */
+  /* The Claude Dashboard caption, carried onto the web page. Every value is read
+     off claude-dashboard/src/ClaudeDashboard.App/Ui/RowTemplates.xaml rather than
+     sampled: CaptionBrush #1F2429 -> #1A1E23, CaptionGlowBrush 16% gold on a
+     120% x 200% ellipse centred at (78%, -60%) fading out by 62%, CaptionRuleBrush
+     gold at 30%, InkBrush #E8EAED. Proportions come from the 48px desktop caption
+     scaled to a 72px web bar: the mark is 0.42x the bar height, the wordmark 0.31x.
+     No window controls — this is a page banner, not window chrome. */
+  .appbar {
+    /* Runs the full window width, while its contents stay lined up with the .page
+       column beneath it: past 1280px the padding grows by the same amount the
+       column is inset, so the mark sits directly above the h1.
+       The percentage resolves against body's width, NOT 100vw — vw counts the
+       scrollbar on Windows, which would overhang by ~15px and put a horizontal
+       scrollbar on the page. Below 1280px both terms collapse to the plain
+       gutter and the bar is simply edge to edge. */
+    padding-inline: max(
+      clamp(16px, 4vw, 56px),
+      calc((100% - 1280px) / 2 + clamp(16px, 4vw, 56px))
+    );
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background:
+      radial-gradient(120% 200% at 78% -60%, rgba(182, 130, 53, .16) 0%, rgba(182, 130, 53, 0) 62%),
+      linear-gradient(180deg, #1f2429 0%, #1a1e23 100%);
+    border-bottom: 1px solid rgba(182, 130, 53, .30);
+  }
+  .appbar .mark {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    background: var(--brand-mark) center / contain no-repeat;
+  }
+  .appbar .wordmark {
+    font-family: var(--title);
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: .012em;
+    color: #e8eaed;
+  }
+  @media (max-width: 560px) {
+    .appbar { height: 60px; gap: 11px; }
+    .appbar .mark { width: 25px; height: 25px; }
+    .appbar .wordmark { font-size: 19px; }
   }
 
   /* ---- header ---- */
@@ -323,9 +385,24 @@
   @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
   }
+
+  /* The application mark, inlined so this viewer stays one self-contained file:
+     it works from file:// with no network, and nothing can go missing when the
+     html is copied on its own. Generated from the dashboard's Assets/app.ico
+     256px frame, reduced to 96px with a Mitchell filter — 3.2x its 30px display
+     size, so it holds up on a 3x display. To regenerate:
+       magick app.ico[0] -filter Mitchell -resize 96x96 mark96.png */
+  :root { --brand-mark: url("data:image/png;base64,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"); }
 </style>
 </head>
 <body>
+
+<div class="appbar">
+  <span class="mark" aria-hidden="true"></span>
+  <span class="wordmark">Claude Sessions</span>
+</div>
+
+<div class="page">
 
 <header>
   <div class="title-row">
@@ -355,6 +432,8 @@
 
 <p class="count-line" id="countLine"></p>
 <div id="list"></div>
+
+</div><!-- /.page -->
 
 <div class="modal-backdrop" id="forkModal" hidden role="dialog" aria-modal="true" aria-labelledby="forkModalTitle">
   <div class="modal">
