@@ -317,13 +317,18 @@
     border: 1px solid var(--line);
     border-radius: 4px;
     color: var(--dim);
-    font-family: var(--sans);
-    font-size: 12px;
     line-height: 1;
-    padding: 3px 7px;
+    padding: 3px 6px;
     cursor: pointer;
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
   }
+  /* Inline SVG, not the U+1F5D1 emoji: the emoji depends on font fallback
+     and rendered as an unreadable smudge at this size (issue #27). Stroke is
+     currentColor so the icon follows the button's dim / red hover colors. */
+  .delete-btn svg { display: block; width: 13px; height: 13px; }
   .delete-btn:hover { color: var(--red); border-color: var(--red); }
   .delete-btn:focus-visible { outline: 2px solid var(--red); }
 
@@ -540,6 +545,12 @@
       ${open ? detailHtml(s) : ''}`;
   }
 
+  // Trash can for the delete button: lid, handle, tapered can, two ribs.
+  const TRASH_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M2.5 4h11"/><path d="M6 4V2.5h4V4"/><path d="M3.8 4l.7 9.5h7l.7-9.5"/>' +
+    '<path d="M6.6 6.5v4.5M9.4 6.5v4.5"/></svg>';
+
   function detailHtml(s) {
     const resume = 'claude --resume ' + s.sessionId;
     return `
@@ -554,7 +565,7 @@
                  title="open a copy of this session under a new session id, named &quot;${esc(forkName(s))}&quot;; the original is untouched">fork</a>` : ''}
               <button class="copy-btn" data-copy="${esc(resume)}">copy</button>
               ${CAN_LAUNCH ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
-                      title="delete this session transcript" aria-label="delete this session transcript">&#128465;</button>` : ''}</dd>
+                      title="delete this session transcript" aria-label="delete this session transcript">${TRASH_ICON}</button>` : ''}</dd>
           <dt>fork</dt>
           <dd><span class="resume-cmd">${esc(forkCommand(s))}</span>
               <button class="copy-btn" data-copy="" data-fork-copy="${esc(s.sessionId)}"
