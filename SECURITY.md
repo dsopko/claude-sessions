@@ -23,8 +23,19 @@ What keeps the ceiling there:
    `claudesessions://(resume|fork|delete|new|continue|assist|reindex)/<one-segment>`
    exactly. Unknown verbs, extra path segments, query strings: rejected.
 2. **Strict argument validation.** `resume`, `fork` and `delete` take only a
-   UUID. `fork` is `resume` plus the hardcoded `--fork-session` flag; it takes
-   no name or title, because that would put webpage text on a command line.
+   UUID. `fork` is `resume` plus the hardcoded `--fork-session` flag; its URL
+   carries no name or title, because that would put webpage text on a command
+   line. The fork is still launched named (`--name "<title> forked
+   yyyy-MM-dd HHmm"`), but that name is derived from the index row the UUID
+   selects (title, else first prompt, else `session`) and the clock, never
+   the URL. Titles are untrusted text (Claude-generated or user-typed from
+   transcript content), and the name is parsed again by PowerShell in the new
+   terminal, so it is **whitelisted, not escaped**: every character outside
+   `[A-Za-z0-9 ._-]` becomes a space, leading non-alphanumerics are dropped
+   so it can never read as a flag, it is capped at 60 characters, and the
+   handler refuses to launch if the result fails a final pattern check.
+   Matching is case-sensitive on purpose, since case-insensitive classes let
+   characters such as the Kelvin sign fold into `[A-Za-z]`.
    `new` and `continue` take only `[A-Za-z0-9._-]{1,200}`. `assist` and
    `reindex` carry no data at all — their argument must be the literal
    `start` / `now`, so no webpage can feed them anything.
