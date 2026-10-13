@@ -7,7 +7,9 @@
     Verbs:
       claudesessions://resume/<session-uuid>     resume that session in its directory
       claudesessions://fork/<session-uuid>       resume that session as a fork (new
-                                                 session id; original left untouched)
+                                                 session id; original left untouched),
+                                                 named "<title> forked <timestamp>"
+                                                 from the index, never the URL
       claudesessions://delete/<session-uuid>     permanently delete that transcript
                                                  (native Yes/No confirm; path resolved
                                                  from the index, never from the URL)
@@ -59,6 +61,34 @@ function Confirm-Message {
         $r = (New-Object -ComObject WScript.Shell).Popup($Text, 0, $Title, 4)
         return ($r -eq 6)
     }
+}
+
+# Display name for a fork: "<title> forked yyyy-MM-dd HHmm". Built ONLY from
+# the index row (title, else firstPrompt, else 'session') and the clock.
+# The result lands inside a double-quoted PowerShell argument, so it is
+# WHITELISTED, not escaped: anything outside [A-Za-z0-9 ._-] becomes a space,
+# which rules out quotes, backticks, $, ;, | and every Unicode look-alike.
+# Case-sensitive operators (-creplace/-cmatch) on purpose: case-insensitive
+# matching lets characters such as the Kelvin sign fold into [A-Za-z].
+# Keep in step with forkName() in sessions.html.
+function Get-ForkName($s, [datetime]$when) {
+    $stamp = ' ?forked [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{4}$'
+    $base = ''
+    foreach ($text in @($s.title, $s.firstPrompt)) {
+        if (-not $text) { continue }
+        $t = ([string]$text -creplace '[^A-Za-z0-9 ._-]', ' ')
+        $t = ($t -creplace ' +', ' ').Trim()
+        # Forking a fork replaces the earlier stamp instead of stacking it.
+        while ($t -cmatch $stamp) { $t = ($t -creplace $stamp, '').Trim() }
+        $t = $t -creplace '^[^A-Za-z0-9]+', ''     # never start with '-' (reads as a flag)
+        if ($t.Length -gt 60) { $t = $t.Substring(0, 60).Trim() }
+        if ($t) { $base = $t; break }
+    }
+    if (-not $base) { $base = 'session' }
+    $name = "$base forked $($when.ToString('yyyy-MM-dd HHmm'))"
+    # Defense in depth: refuse to build a command from anything unexpected.
+    if ($name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9 ._-]*$') { throw "Unsafe fork name." }
+    return $name
 }
 
 try {
@@ -200,8 +230,21 @@ try {
             $cwd = $s.cwd
             $claudeArgs = "--resume $($s.sessionId)"   # value from index, not from URL
             # fork: same history, new session id, original transcript untouched.
-            # Hardcoded constant - no name/title from the URL (SECURITY.md).
-            if ($verb -eq 'fork') { $claudeArgs += ' --fork-session' }
+            # Hardcoded constant - nothing from the URL (SECURITY.md).
+            if ($verb -eq 'fork') {
+                $claudeArgs += ' --fork-session'
+                # Launch the fork already named "<title> forked <timestamp>" so
+                # the history does not fill with duplicate titles. The name comes
+                # from the index row and the clock, never the URL, and is
+                # whitelisted (Get-ForkName) because titles are untrusted text
+                # that PowerShell parses again in the new terminal.
+                # Older CLIs without --name get a plain, unnamed fork.
+                $help = (& claude --help 2>&1 | Out-String)
+                if ($help.Contains('--name ')) {
+                    $forkName = Get-ForkName $s (Get-Date)
+                    $claudeArgs += " --name `"$forkName`""
+                }
+            }
         }
         default {
             $matches2 = @($data.sessions | Where-Object { $_.projectDir -eq $arg } |

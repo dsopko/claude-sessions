@@ -92,7 +92,13 @@ see `scripts/posix/README.md`.
 - The "indexed Nm ago" stamp self-updates while the tab sits open; hover it
   for the absolute index time.
 - Row click: full first prompt, session id, **launch** (resume in its own
-  directory), copy-ready resume command.
+  directory), **fork** (open a copy under a new session id), and copy-ready
+  resume and fork commands.
+- **Forks launch already named** `<title> forked yyyy-MM-dd HHmm`, so your
+  history never fills with duplicate titles. Forking a fork replaces the
+  earlier stamp instead of stacking it. This uses Claude Code's `--name`
+  flag (verified on 2.1.296); on an older CLI without it, fork still works
+  and the session is simply unnamed.
 - Group headers: **+ new** and **continue** for that project. Buttons appear
   only when the protocol is registered (config.json drives it). **+ new**
   starts the session with `--permission-mode auto`; **continue** doesn't
