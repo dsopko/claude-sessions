@@ -548,7 +548,8 @@
         <dl class="kv">
           <dt>resume</dt>
           <dd><span class="resume-cmd">${esc(resume)}</span>
-              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}">launch</a>
+              ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}"
+                 title="reopen this session in its own directory under the same session id">resume</a>
               <a class="launch-link fork-link" href="claudesessions://fork/${esc(s.sessionId)}" data-fork="${esc(s.sessionId)}"
                  title="open a copy of this session under a new session id, named &quot;${esc(forkName(s))}&quot;; the original is untouched">fork</a>` : ''}
               <button class="copy-btn" data-copy="${esc(resume)}">copy</button>

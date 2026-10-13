@@ -91,7 +91,7 @@ see `scripts/posix/README.md`.
   plain reload when the protocol isn't registered.
 - The "indexed Nm ago" stamp self-updates while the tab sits open; hover it
   for the absolute index time.
-- Row click: full first prompt, session id, **launch** (resume in its own
+- Row click: full first prompt, session id, **resume** (reopen it in its own
   directory), **fork** (open a copy under a new session id), and copy-ready
   resume and fork commands.
 - **Forks launch already named** `<title> forked yyyy-MM-dd HHmm`, so your
