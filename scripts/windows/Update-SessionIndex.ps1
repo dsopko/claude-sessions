@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
 # Bump whenever the per-session extraction below changes shape or meaning, so
 # rows cached by an older build are discarded instead of silently surviving a
 # script upgrade with missing or stale fields.
-$IndexerVersion = 2
+$IndexerVersion = 3
 
 # Resolve our own location defensively: $PSScriptRoot can come up empty under
 # some hook/host invocation paths, and Split-Path '' throws.
@@ -261,10 +261,14 @@ foreach ($entry in $files) {
         $lastTs = $null
         $lastBranch = $null
         $lastPrompt = $null
+        $tailCwd = $null
+        $tailVersion = $null
         foreach ($raw in (Read-TailLines -Path $f.FullName)) {
             $o = ConvertFrom-JsonSafe $raw
             if ($o -and $o.timestamp) { $lastTs = $o.timestamp }
             if ($o -and $o.gitBranch) { $lastBranch = $o.gitBranch }
+            if ($o -and $o.cwd     -and -not $tailCwd)     { $tailCwd     = $o.cwd }
+            if ($o -and $o.version -and -not $tailVersion) { $tailVersion = $o.version }
             if ($o -and $o.type -eq 'custom-title' -and $o.customTitle) { $customTitle = $o.customTitle }
             if ($o -and $o.type -eq 'ai-title'     -and $o.aiTitle)     { $aiTitle     = $o.aiTitle }
             if ($o -and $o.forkedFrom) { $isFork = $true }
@@ -291,6 +295,24 @@ foreach ($entry in $files) {
                 }
             }
         }
+
+        # The head window can miss cwd and version entirely. Read-HeadLines stops
+        # at 120 lines OR 256 KB, whichever comes first, and a transcript whose
+        # leading lines are large trips the byte cap long before the metadata: in
+        # one measured 10 MB session the leading lines ran 14 KB each, so the head
+        # read stopped at line 23 while cwd, version and gitBranch first appeared
+        # on line 68, about 1 MB in.
+        #
+        # Both ride on every event line, so the tail just parsed above already has
+        # them -- filling from there costs nothing. This matters most for cwd,
+        # because the alternative is Get-ProjectLabel, which cannot tell a hyphen
+        # inside a folder name from a path separator: it decoded
+        # C--projects-Claude-claude-dashboard as C:\projects\Claude\claude\dashboard
+        # and broke launch and fork for that session, since Launch-Handler.ps1
+        # requires the resolved directory to exist. Fallback only -- a head value,
+        # being the session's origin, still wins where there is one.
+        if (-not $cwd     -and $tailCwd)     { $cwd     = $tailCwd }
+        if (-not $version -and $tailVersion) { $version = $tailVersion }
 
         if (-not $lastTs) { $lastTs = $f.LastWriteTimeUtc.ToString('o') }
         if ($lastBranch) { $gitBranch = $lastBranch }   # end-of-session branch wins
