@@ -92,8 +92,8 @@ see `scripts/posix/README.md`.
 - The "indexed Nm ago" stamp self-updates while the tab sits open; hover it
   for the absolute index time.
 - Row click: full first prompt, session id, **resume** (reopen it in its own
-  directory), **fork** (open a copy under a new session id), and copy-ready
-  resume and fork commands.
+  directory), **fork** (open a copy under a new session id), and a copy-ready
+  resume command.
 - **Forks launch already named** `<title> forked yyyy-MM-dd HHmm`, so your
   history never fills with duplicate titles. Forking a fork replaces the
   earlier stamp instead of stacking it. This uses Claude Code's `--name`
