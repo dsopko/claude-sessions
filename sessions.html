@@ -566,10 +566,6 @@
               <button class="copy-btn" data-copy="${esc(resume)}">copy</button>
               ${CAN_LAUNCH ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
                       title="delete this session transcript" aria-label="delete this session transcript">${TRASH_ICON}</button>` : ''}</dd>
-          <dt>fork</dt>
-          <dd><span class="resume-cmd">${esc(forkCommand(s))}</span>
-              <button class="copy-btn" data-copy="" data-fork-copy="${esc(s.sessionId)}"
-                      title="copy a fork command; the name's timestamp is taken when you copy">copy</button></dd>
           <dt>session id</dt>
           <dd>${esc(s.sessionId)}
               <button class="copy-btn" data-copy="${esc(s.sessionId)}">copy</button>
@@ -705,14 +701,7 @@
 
   $list.addEventListener('click', e => {
     const copy = e.target.closest('.copy-btn');
-    if (copy) {
-      let text = copy.dataset.copy;
-      if (copy.dataset.forkCopy) {
-        const s = DATA.sessions.find(x => x.sessionId === copy.dataset.forkCopy);
-        if (s) text = forkCommand(s);
-      }
-      copyText(text, copy); e.stopPropagation(); return;
-    }
+    if (copy) { copyText(copy.dataset.copy, copy); e.stopPropagation(); return; }
     const del = e.target.closest('.delete-btn');
     if (del) {
       e.stopPropagation();
@@ -776,10 +765,11 @@
   /* ---------- fork name ---------- */
   // Forks launch already named "<title> forked yyyy-MM-dd HHmm" (issue #29).
   // The handler builds the real name from the index (Get-ForkName in
-  // Launch-Handler.ps1); this mirrors it so a copied fork command names the
-  // fork the same way. Keep the two in step. The name is WHITELISTED to
-  // [A-Za-z0-9 ._-], never escaped, because the user pastes it into a shell.
-  // Nothing here travels through a claudesessions:// URL.
+  // Launch-Handler.ps1); this mirrors it so the fork button's tooltip can show
+  // the name the fork will get. Keep the two in step. The name is WHITELISTED
+  // to [A-Za-z0-9 ._-], never escaped, to match the handler exactly.
+  // Nothing here travels through a claudesessions:// URL. There is deliberately
+  // no copyable fork command row under resume (see #15 and #34).
   const FORK_STAMP = / ?forked [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{4}$/;
   function forkName(s, when) {
     let base = '';
@@ -795,9 +785,6 @@
     const d = when || new Date();
     const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}`;
     return `${base || 'session'} forked ${stamp}`;
-  }
-  function forkCommand(s, when) {
-    return `claude --resume ${s.sessionId} --fork-session --name "${forkName(s, when)}"`;
   }
 
   document.addEventListener('keydown', e => {
