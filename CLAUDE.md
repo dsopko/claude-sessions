@@ -96,7 +96,10 @@ never by file position**:
 2. Synthesized `"Searching Claude sessions - <query>"` — search-with-claude
    sessions only, whose injected kickoff prompt is skipped so firstPrompt/title
    reflect the real query. Outranks `aiTitle` because their auto title is
-   generated from that boilerplate. Index-only; not in the transcript.
+   generated from that boilerplate, and also outranks the fixed `Session
+   search` name the assist launcher applies (that name exists only to group
+   these sessions in Claude's own `/resume` list; any other rename the user
+   typed still wins). Index-only; not in the transcript.
 3. `aiTitle` — Claude Code's own auto name, generated from the opening prompt.
 4. Empty → the viewer falls back to `firstPrompt`.
 

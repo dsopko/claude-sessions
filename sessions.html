@@ -168,6 +168,24 @@
   .controls button[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-dim); }
   .controls button:focus-visible, .controls select:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: 1px; }
   .hint { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-2);
+    border: 1px solid var(--amber-dim);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s;
+  }
+  .toast.show { opacity: 1; }
   .count-line { font-size: 12.5px; color: var(--dim); margin: 0 0 10px 2px; }
   .count-line strong { color: var(--text); font-weight: 600; }
 
@@ -387,6 +405,8 @@
   </select>
   <button id="groupToggle" aria-pressed="true" title="Group sessions by project">group by project</button>
   <button id="collapseAll" title="Collapse or expand all groups">collapse all</button>
+  <button id="hideAssist" aria-pressed="false"
+          title="Hide the meta-sessions that 'search with claude' itself creates">hide search sessions</button>
   <button id="refreshBtn" title="Re-scan transcripts, then reload the page">&#x21bb; refresh</button>
   <a class="gh-act" id="assistBtn" href="claudesessions://assist/start"
      title="Open a Claude session in this folder to search transcripts conversationally">&#x2315; search with claude</a>
@@ -434,6 +454,7 @@
   const state = {
     filter: '',
     sortBy: 'lastActivity',
+    hideAssist: false,            // hide "search with claude" meta-sessions
     grouped: true,
     expanded: new Set(),          // sessionIds with open detail
     collapsedGroups: new Set(),   // projectDir names
@@ -492,9 +513,18 @@
   // the path shown in the group header, folded for case-insensitive ordering
   const projectKey = s => (s.cwd || s.projectDir || '').toLowerCase();
 
+  // Sessions that "search with claude" itself created: the synthesized
+  // index-only label, or the fixed name the launch handler applies (plus the
+  // CLI's collision suffix) when the indexer hasn't re-labeled it yet.
+  const isAssistRow = s => {
+    const t = s.title || '';
+    return t.startsWith('Searching Claude sessions') || /^Session search( \(\d+\))?$/.test(t);
+  };
+
   function visibleSessions() {
     const q = state.filter.trim().toLowerCase();
     let rows = DATA.sessions.slice();
+    if (state.hideAssist) rows = rows.filter(s => !isAssistRow(s));
     if (q) {
       rows = rows.filter(s =>
         (s.firstPrompt || '').toLowerCase().includes(q) ||
@@ -743,6 +773,42 @@
     if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('row')) {
       e.preventDefault(); e.target.click();
     }
+  });
+
+  function showToast(msg) {
+    let t = document.querySelector('.toast');
+    if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+    t.textContent = msg;
+    requestAnimationFrame(() => t.classList.add('show'));
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // "search with claude" with a query already typed into the filter box: put
+  // that text on the clipboard so the user can paste it to Claude in the
+  // terminal. Deliberately NOT in the URL — webpage text must never become a
+  // prompt (SECURITY.md); the protocol link fires unchanged, carrying nothing.
+  const $assist = document.getElementById('assistBtn');
+  if ($assist) $assist.addEventListener('click', () => {
+    const q = $filter.value.trim();
+    if (!q) return;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(q).catch(() => {});
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = q; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); ta.remove();
+      }
+      showToast('query copied — paste it to Claude');
+    } catch (err) { /* clipboard unavailable: the launch still proceeds */ }
+  });
+
+  const $hideAssist = document.getElementById('hideAssist');
+  $hideAssist.addEventListener('click', () => {
+    state.hideAssist = !state.hideAssist;
+    $hideAssist.setAttribute('aria-pressed', state.hideAssist);
+    render();
   });
 
   $filter.addEventListener('input', () => { state.filter = $filter.value; render(); });

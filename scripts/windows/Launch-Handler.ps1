@@ -218,6 +218,17 @@ try {
             $cwd = $root
             # Fixed, hardcoded prompt. NEVER substitute URL content here (SECURITY.md).
             $claudeArgs = '"The user clicked Search with Claude on the sessions page. Greet them in one line and ask what they want to find in their session history, then answer using the scripts per CLAUDE.md."'
+            # Name the session with a hardcoded constant so assist sessions group
+            # recognizably in Claude's own /resume list instead of piling up as
+            # auto-titled lookalikes. Nothing from the URL. The indexer
+            # special-cases this exact name so the viewer still shows the
+            # query-derived "Searching Claude sessions - ..." label — keep the
+            # constant in sync with Update-SessionIndex.ps1. Older CLIs without
+            # --name get a plain, unnamed session.
+            $help = (& claude --help 2>&1 | Out-String)
+            if ($help.Contains('--name ')) {
+                $claudeArgs += ' --name "Session search"'
+            }
             # The session's startup hook re-runs the indexer; the page is already open.
             $env:CLAUDESESSIONS_NOLAUNCH = '1'
         }
