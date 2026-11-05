@@ -79,7 +79,9 @@ resume command when a result looks like something they want to reopen.
 
 `sessionId, title, firstPrompt (truncated 300), lastPrompt (truncated 300), cwd,
 projectDir, gitBranch, version, startTime, lastActivity, durationMin, sizeBytes,
-isFork (forkedFrom present), filePath`
+isFork (forkedFrom present), forkedFrom (parent session id), continuedIn
+(successor session id from the tail continued-in event), kind
+('session' | 'background-job'), filePath`
 
 `lastPrompt` is the last human-typed prompt in the transcript — where the session
 left off, which is usually what decides whether it is worth resuming. It is read
@@ -111,6 +113,16 @@ Code deletes a transcript that many days after its last activity. The page flags
 sessions due within 7 days.
 
 Sub-agent transcripts (`agent-*.jsonl`) are excluded from the index.
+
+**Background jobs:** a daemon background job ("Session kind: background job")
+writes no transcript under `~\.claude\projects\` while it runs — its only
+on-disk state is `~\.claude\jobs\<short-id>\state.json`. The indexer emits a
+row for each (`kind: "background-job"`, plus `jobState`/`jobDetail`; no
+transcript-derived fields), rebuilt fresh every run and skipped when the same
+sessionId already has a transcript row. Get-SessionDetail.ps1 falls back to
+the same state file when no transcript matches an id. Search-Sessions.ps1
+cannot see inside these sessions — there is nothing to grep; say so rather
+than reporting the session doesn't exist.
 
 ## The index is incremental — respect the cache contract
 

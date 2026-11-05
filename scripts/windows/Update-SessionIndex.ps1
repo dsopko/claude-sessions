@@ -43,7 +43,7 @@ $ErrorActionPreference = 'Stop'
 # Bump whenever the per-session extraction below changes shape or meaning, so
 # rows cached by an older build are discarded instead of silently surviving a
 # script upgrade with missing or stale fields.
-$IndexerVersion = 3
+$IndexerVersion = 4
 
 # Resolve our own location defensively: $PSScriptRoot can come up empty under
 # some hook/host invocation paths, and Split-Path '' throws.
@@ -207,6 +207,8 @@ foreach ($entry in $files) {
         $aiTitle     = $null
         $assistKickoff = $false   # first real prompt was the injected "search with claude" kickoff
         $isFork      = $false
+        $forkedFrom  = $null   # session this one was forked from (first stamp wins)
+        $continuedIn = $null   # session this one was continued into (tail event; last wins)
 
         # Take the first non-null value of each field across the (bounded) head.
         # The sessionId-bearing "meta" line frequently lacks timestamp / gitBranch
@@ -226,7 +228,10 @@ foreach ($entry in $files) {
             # wins). The tail pass below overrides these — see the note there.
             if ($o.type -eq 'custom-title' -and $o.customTitle) { $customTitle = $o.customTitle }
             if ($o.type -eq 'ai-title'     -and $o.aiTitle)     { $aiTitle     = $o.aiTitle }
-            if ($o.forkedFrom) { $isFork = $true }           # branched from another transcript
+            if ($o.forkedFrom) {                             # branched from another transcript
+                $isFork = $true
+                if (-not $forkedFrom) { $forkedFrom = [string]$o.forkedFrom }
+            }
             if ($null -eq $firstPrompt -and (Test-RealUserPrompt $o)) {
                 $content = $o.message.content
                 if (-not $assistKickoff -and $content -like "$AssistKickoffPrefix*") {
@@ -271,7 +276,16 @@ foreach ($entry in $files) {
             if ($o -and $o.version -and -not $tailVersion) { $tailVersion = $o.version }
             if ($o -and $o.type -eq 'custom-title' -and $o.customTitle) { $customTitle = $o.customTitle }
             if ($o -and $o.type -eq 'ai-title'     -and $o.aiTitle)     { $aiTitle     = $o.aiTitle }
-            if ($o -and $o.forkedFrom) { $isFork = $true }
+            if ($o -and $o.forkedFrom) {
+                $isFork = $true
+                if (-not $forkedFrom) { $forkedFrom = [string]$o.forkedFrom }
+            }
+            # Where the conversation went: a compaction/continuation stamps a
+            # continued-in event at the tail pointing at the successor session
+            # (often a daemon background job with no transcript of its own).
+            if ($o -and $o.type -eq 'continued-in' -and $o.continuedInSessionId) {
+                $continuedIn = [string]$o.continuedInSessionId
+            }
             if (Test-RealUserPrompt $o) {
                 $lc = $o.message.content
                 if ($lc -notlike "$AssistKickoffPrefix*") { $lastPrompt = $lc }
@@ -364,10 +378,70 @@ foreach ($entry in $files) {
             durationMin  = $durationMin
             sizeBytes    = $f.Length
             isFork       = $isFork
+            forkedFrom   = $forkedFrom
+            continuedIn  = $continuedIn
+            kind         = 'session'
             filePath     = $f.FullName
         })
     } catch {
         Write-Warning "Skipped $($f.FullName): $_"
+    }
+}
+
+# --- background jobs -----------------------------------------------------------
+
+# A daemon background job ("Session kind: background job") writes NO transcript
+# under projects/ while it runs; its only on-disk state is jobs/<short>/state.json.
+# Without these rows such a session is invisible to the viewer and to every
+# script (issue #40). Rows are rebuilt from scratch on every run -- the state
+# files are tiny -- and never participate in the transcript row cache above
+# (the cache is keyed by transcript filePath, which these rows don't have).
+# A session that also has a transcript keeps its transcript row: that one
+# carries prompts and real metadata; the job row is the fallback.
+$backgroundJobs = 0
+$seenIds = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($s in $sessions) { if ($s.sessionId) { [void]$seenIds.Add([string]$s.sessionId) } }
+$jobsDir = Join-Path $ClaudeDir 'jobs'
+if (Test-Path $jobsDir) {
+    foreach ($jobDir in (Get-ChildItem -Path $jobsDir -Directory -ErrorAction SilentlyContinue)) {
+        $statePath = Join-Path $jobDir.FullName 'state.json'
+        if (-not (Test-Path $statePath)) { continue }
+        try {
+            # -Encoding UTF8: state.json is UTF-8; PS 5.1 defaults to ANSI.
+            $st = Get-Content -Path $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+            if (-not $st.sessionId) { continue }
+            if ($seenIds.Contains([string]$st.sessionId)) { continue }
+            $jobCwd = $st.cwd
+            # The projects/ folder name Claude Code uses for a cwd: every char
+            # outside [A-Za-z0-9-] becomes '-' (C:\Projects\x -> C--Projects-x).
+            $projDirName = if ($jobCwd) { $jobCwd -replace '[^A-Za-z0-9-]', '-' } else { $jobDir.Name }
+            $intent = if ($st.intent) { [string]$st.intent } else { $null }
+            $detail = if ($st.detail) { [string]$st.detail } else { $null }
+            $sessions.Add([pscustomobject]@{
+                sessionId    = [string]$st.sessionId
+                title        = if ($st.name) { [string]$st.name } else { $null }
+                firstPrompt  = if ($intent) { $intent.Substring(0, [Math]::Min(300, $intent.Length)) } else { $null }
+                lastPrompt   = $null
+                cwd          = $jobCwd
+                projectDir   = $projDirName
+                gitBranch    = $null
+                version      = $null
+                startTime    = $st.createdAt
+                lastActivity = if ($st.updatedAt) { $st.updatedAt } else { (Get-Item $statePath).LastWriteTimeUtc.ToString('o') }
+                durationMin  = $null
+                sizeBytes    = $null
+                isFork       = $false
+                forkedFrom   = $null
+                continuedIn  = $null
+                kind         = 'background-job'
+                jobState     = if ($st.state) { [string]$st.state } else { $null }
+                jobDetail    = if ($detail) { $detail.Substring(0, [Math]::Min(300, $detail.Length)) } else { $null }
+                filePath     = $statePath
+            })
+            $backgroundJobs++
+        } catch {
+            Write-Warning "Skipped job $($jobDir.Name): $_"
+        }
     }
 }
 
@@ -411,10 +485,11 @@ $json = $payload | ConvertTo-Json -Depth 6 -Compress
 # data.js, not data.json: <script src> sidesteps the file:// fetch restriction.
 Set-Content -Path $dataPath -Value "window.SESSION_DATA = $json;" -Encoding UTF8
 
-$parsed = $sessions.Count - $reused
-Write-Host ("Indexed {0} sessions across {1} projects ({2} parsed, {3} reused) -> {4}" -f `
+$parsed = $sessions.Count - $reused - $backgroundJobs
+$jobNote = if ($backgroundJobs) { ", $backgroundJobs background job$(if ($backgroundJobs -ne 1) { 's' })" } else { '' }
+Write-Host ("Indexed {0} sessions across {1} projects ({2} parsed, {3} reused{4}) -> {5}" -f `
     $sessions.Count, ($sessions.projectDir | Select-Object -Unique).Count, `
-    $parsed, $reused, $dataPath)
+    $parsed, $reused, $jobNote, $dataPath)
 
 function Resolve-DefaultBrowser {
     # Full path to the user's default browser exe, or $null. Reads the https (then
