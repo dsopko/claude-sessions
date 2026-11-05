@@ -253,6 +253,31 @@
     text-overflow: ellipsis;
   }
   .prompt .fork-mark { color: var(--teal); font-size: 11px; margin-right: 4px; }
+  /* Daemon background job: a session with no transcript on disk (state.json only). */
+  .prompt .bg-mark {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink);
+    background: var(--teal);
+    border-radius: 3px;
+    padding: 0 4px;
+    margin-right: 6px;
+    font-weight: 600;
+  }
+  .jump-link {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 1px 7px;
+    cursor: pointer;
+  }
+  .jump-link:hover { color: var(--amber); border-color: var(--amber-dim); }
+  .jump-link:focus-visible { outline: 2px solid var(--amber-dim); }
+  .row.jump-flash { outline: 2px solid var(--amber-dim); outline-offset: -2px; }
+  .kv-note { color: var(--faint); }
   .prompt.empty { color: var(--faint); font-style: italic; }
   .cell { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cell.branch { font-family: var(--mono); color: var(--teal); font-size: 11.5px; }
@@ -526,9 +551,12 @@
     const label = s.title ? esc(s.title)
       : s.firstPrompt ? esc(s.firstPrompt) : null;
     const promptCls = label ? 'prompt' : 'prompt empty';
+    const isJob = s.kind === 'background-job';
     const fork = s.isFork ? '<span class="fork-mark" title="resumed / branched lineage">&#x2387;</span>' : '';
+    const bg = isJob ? '<span class="bg-mark" title="daemon background job — no transcript on disk">bg</span>' : '';
     const open = state.expanded.has(s.sessionId);
-    const exp = daysUntilExpiry(s.lastActivity);
+    // Transcript retention does not apply to a job row — there is no transcript.
+    const exp = isJob ? null : daysUntilExpiry(s.lastActivity);
     const expiring = exp != null && exp <= 7;
     const lastTitle = expiring ? expiryLabel(exp) : (s.lastActivity || '');
     return `
@@ -536,7 +564,7 @@
            aria-expanded="${open}">
         <span class="tick" style="opacity:${heat(s.lastActivity).toFixed(2)}"
               title="last activity ${esc(relTime(s.lastActivity))}"></span>
-        <span class="${promptCls}">${fork}${label || '(no prompt captured)'}</span>
+        <span class="${promptCls}">${bg}${fork}${label || '(no prompt captured)'}</span>
         <span class="cell branch">${esc(s.gitBranch || '—')}</span>
         <span class="cell started num" title="${esc(s.startTime || '')}">${shortDate(s.startTime)}</span>
         <span class="cell num last-active" title="${esc(lastTitle)}">${relTime(s.lastActivity)}</span>
@@ -552,6 +580,7 @@
     '<path d="M6.6 6.5v4.5M9.4 6.5v4.5"/></svg>';
 
   function detailHtml(s) {
+    const isJob = s.kind === 'background-job';
     const resume = 'claude --resume ' + s.sessionId;
     return `
       <div class="detail" data-detail="${esc(s.sessionId)}">
@@ -560,11 +589,11 @@
           <dt>resume</dt>
           <dd><span class="resume-cmd">${esc(resume)}</span>
               ${CAN_LAUNCH ? `<a class="launch-link" href="claudesessions://resume/${esc(s.sessionId)}"
-                 title="reopen this session in its own directory under the same session id">resume</a>
-              <a class="launch-link fork-link" href="claudesessions://fork/${esc(s.sessionId)}" data-fork="${esc(s.sessionId)}"
+                 title="reopen this session in its own directory under the same session id">resume</a>` : ''}
+              ${CAN_LAUNCH && !isJob ? `<a class="launch-link fork-link" href="claudesessions://fork/${esc(s.sessionId)}" data-fork="${esc(s.sessionId)}"
                  title="open a copy of this session under a new session id, named &quot;${esc(forkName(s))}&quot;; the original is untouched">fork</a>` : ''}
               <button class="copy-btn" data-copy="${esc(resume)}">copy</button>
-              ${CAN_LAUNCH ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
+              ${CAN_LAUNCH && !isJob ? `<button class="delete-btn" data-delete="${esc(s.sessionId)}"
                       title="delete this session transcript" aria-label="delete this session transcript">${TRASH_ICON}</button>` : ''}</dd>
           <dt>fork</dt>
           <dd><span class="resume-cmd">${esc(forkCommand(s))}</span>
@@ -577,6 +606,9 @@
               <span class="kv-sep">&middot;</span><span>${s.version ? 'v' + esc(s.version) : '&mdash;'}</span></dd>
           <dt>directory</dt><dd>${esc(s.cwd || '—')}</dd>
           <dt>file</dt><dd>${esc(s.filePath || '—')}</dd>
+          ${isJob ? `<dt>job</dt><dd>${esc(s.jobState || 'unknown')}${s.jobDetail
+            ? `<span class="kv-sep">&middot;</span><span>${esc(s.jobDetail)}</span>` : ''}</dd>` : ''}
+          ${lineageHtml(s)}
         </dl>
         ${lastPromptHtml(s)}
       </div>`;
@@ -588,6 +620,40 @@
   function lastPromptHtml(s) {
     if (!s.lastPrompt || s.lastPrompt === s.firstPrompt) return '';
     return `<div class="full-prompt">${esc(s.lastPrompt)}</div>`;
+  }
+
+  // Lineage: where this session came from (forkedFrom) and where it went
+  // (continuedIn — a compaction/continuation successor, often a daemon
+  // background job). Known targets get a jump button; unknown ones (deleted,
+  // or on another machine) degrade to plain text.
+  function lineageRef(label, id) {
+    const known = DATA.sessions.some(x => x.sessionId === id);
+    return known
+      ? `<span>${label}</span><button class="jump-link" data-jump="${esc(id)}" title="${esc(id)}">${esc(String(id).slice(0, 8))}&hellip;</button>`
+      : `<span>${label}</span><span title="${esc(id)}">${esc(String(id).slice(0, 8))}&hellip;</span><span class="kv-note">(not in index)</span>`;
+  }
+  function lineageHtml(s) {
+    const bits = [];
+    if (s.forkedFrom) bits.push(lineageRef('forked from', s.forkedFrom));
+    if (s.continuedIn) bits.push(lineageRef('continued in', s.continuedIn));
+    if (!bits.length) return '';
+    return `<dt>lineage</dt><dd>${bits.join('<span class="kv-sep">&middot;</span>')}</dd>`;
+  }
+
+  // Expand a lineage target's row and bring it into view.
+  function jumpTo(id) {
+    const t = DATA.sessions.find(x => x.sessionId === id);
+    if (!t) return;
+    state.filter = ''; $filter.value = '';
+    state.collapsedGroups.delete(t.projectDir);
+    state.expanded.add(id);
+    render();
+    const el = $list.querySelector(`.row[data-id="${id}"]`);
+    if (el) {
+      el.scrollIntoView({ block: 'center' });
+      el.classList.add('jump-flash');
+      setTimeout(() => el.classList.remove('jump-flash'), 1600);
+    }
   }
 
   const colHeads = `
@@ -724,6 +790,8 @@
       setTimeout(() => location.reload(), 3000);
       return;
     }
+    const jump = e.target.closest('.jump-link');
+    if (jump) { e.stopPropagation(); jumpTo(jump.dataset.jump); return; }
     if (e.target.closest('.detail')) return;
     if (e.target.closest('.gh-act') || e.target.closest('.launch-link')) return; // let the link navigate
     const gh = e.target.closest('.gh-toggle');

@@ -23,7 +23,38 @@ $projectsDir = Join-Path $ClaudeDir 'projects'
 $match = Get-ChildItem -Path $projectsDir -Recurse -Filter '*.jsonl' -File |
     Where-Object { $_.BaseName -like "$Id*" -and $_.Name -notlike 'agent-*' }
 
-if (-not $match) { Write-Error "No session file matching '$Id'"; exit 1 }
+if (-not $match) {
+    # No transcript. A daemon background job ("Session kind: background job")
+    # writes no .jsonl under projects/ while it runs -- its only on-disk state
+    # is jobs/<short-id>/state.json. Check there before giving up (issue #40).
+    $jobsDir = Join-Path $ClaudeDir 'jobs'
+    if (Test-Path $jobsDir) {
+        foreach ($jobDir in (Get-ChildItem -Path $jobsDir -Directory -ErrorAction SilentlyContinue)) {
+            $statePath = Join-Path $jobDir.FullName 'state.json'
+            if (-not (Test-Path $statePath)) { continue }
+            # -Encoding UTF8: state.json is UTF-8; PS 5.1 defaults to ANSI.
+            try { $st = Get-Content -Path $statePath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { continue }
+            if ($st.sessionId -like "$Id*") {
+                [pscustomobject]@{
+                    sessionId     = $st.sessionId
+                    kind          = 'background-job'
+                    title         = $st.name
+                    intent        = $st.intent
+                    state         = $st.state
+                    detail        = $st.detail
+                    cwd           = $st.cwd
+                    startTime     = $st.createdAt
+                    lastActivity  = $st.updatedAt
+                    filePath      = $statePath
+                    note          = 'Daemon background job: no transcript exists under ~/.claude/projects while it runs, so prompts and event counts are unavailable.'
+                    resumeCommand = "claude --resume $($st.sessionId)"
+                } | ConvertTo-Json -Depth 4
+                exit 0
+            }
+        }
+    }
+    Write-Error "No session file matching '$Id'"; exit 1
+}
 if ($match.Count -gt 1) {
     Write-Error ("Ambiguous prefix '{0}' matches: {1}" -f $Id, ($match.BaseName -join ', '))
     exit 1
