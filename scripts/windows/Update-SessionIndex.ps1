@@ -338,6 +338,14 @@ foreach ($entry in $files) {
         # index-only: it lives in data.js, not in the transcript, so it shows here
         # and not in Claude's /resume list. firstPrompt is the viewer's fallback.
         $displayTitle = $customTitle
+        # The assist verb launches its session pre-named "Session search" (a
+        # hardcoded constant in Launch-Handler.ps1, plus the CLI's collision
+        # suffix " (2)") purely so Claude's own /resume list groups them. In
+        # the viewer the query-derived label below is more useful, so that
+        # fixed name steps aside; any other rename the user typed still wins.
+        if ($assistKickoff -and $displayTitle -match '^Session search( \(\d+\))?$') {
+            $displayTitle = $null
+        }
         if (-not $displayTitle -and $assistKickoff) {
             if ($firstPrompt) {
                 $q = $firstPrompt.Trim() -replace '\s+', ' '
