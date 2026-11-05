@@ -22,8 +22,13 @@ instead.
 
 If the first user message says they clicked **Search with Claude** on the
 sessions page, skip preamble: one-line greeting, ask what to find, then use
-Search-Sessions.ps1 / Get-SessionDetail.ps1 to answer. Offer the session's
-resume command when a result looks like something they want to reopen.
+Search-Sessions.ps1 / Get-SessionDetail.ps1 to answer. Pass
+`-ExcludeSessionId <your own session id>` on every search — the current
+conversation always matches the query the user just typed into it (your
+session id is the last directory segment of your scratchpad path). Offer the
+session's resume command when a result looks like something they want to
+reopen; search results already carry `resumeCommand`, `title`, `cwd`, and
+`lastActivity`, so one search usually answers without per-session digests.
 
 ## Tools — always reach for these, never raw-read transcripts
 
@@ -33,7 +38,7 @@ resume command when a result looks like something they want to reopen.
 | Rebuild index only (no browser) | add `-NoLaunch` |
 | Force a full re-parse (after changing extraction logic) | add `-Force` |
 | Digest one session (meta, first prompt, last N prompts, event counts) | `... -File ./scripts/windows/Get-SessionDetail.ps1 -Id <uuid-or-prefix> [-LastN 10]` |
-| Full-text search across all transcripts | `... -File ./scripts/windows/Search-Sessions.ps1 -Pattern <regex> [-SimpleMatch]` |
+| Full-text search across all transcripts | `... -File ./scripts/windows/Search-Sessions.ps1 -Pattern <regex> [-SimpleMatch] [-ProjectDir <name>] [-After <date>] [-Before <date>] [-ExcludeSessionId <uuid>]` |
 | Register/unregister `claudesessions://` links | `... -File ./scripts/windows/Register-Protocol.ps1 [-Unregister]` |
 | Full uninstall (protocol + shortcut + generated files) | `... -File ./scripts/windows/Uninstall.ps1` |
 
